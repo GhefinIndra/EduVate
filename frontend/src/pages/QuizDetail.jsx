@@ -68,7 +68,7 @@ export default function QuizDetail() {
         <div className="mb-8">
           <button
             onClick={() => navigate(`/topics/${quiz?.subject_id}/quizzes`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary-600 mb-4 transition"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-4 transition"
           >
             <ArrowLeft size={20} />
             <span>Back to Quizzes</span>
@@ -83,8 +83,8 @@ export default function QuizDetail() {
           <Card className="p-6 mb-8">
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-gray-900 mb-3">{quiz?.title}</h2>
-                <div className="flex items-center gap-4 text-gray-600">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">{quiz?.title}</h2>
+                <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2">
                     <ClipboardList size={18} />
                     <span>{quiz?.total_questions} questions</span>
@@ -135,10 +135,10 @@ export default function QuizDetail() {
         {/* Submissions History */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
               Attempt History
             </h3>
-            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium">
               {submissions.length}
             </span>
           </div>
@@ -200,7 +200,7 @@ export default function QuizDetail() {
                           {/* Info */}
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900 text-lg">
+                              <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
                                 Attempt {attemptNumber}
                               </h4>
                               {isBestScore && (
@@ -210,7 +210,7 @@ export default function QuizDetail() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 dark:text-gray-300">
                               {new Date(submission.submitted_at).toLocaleString('id-ID', {
                                 day: 'numeric',
                                 month: 'long',

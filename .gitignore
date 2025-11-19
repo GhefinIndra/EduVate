@@ -32,6 +32,18 @@ venv.bak/
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+
+# Google Cloud credentials
+backend/gcs-key.json
+gcs-key.json
+**/gcs-key.json
+*.json.key
+service-account*.json
 
 # IDEs
 .vscode/
@@ -48,7 +60,9 @@ venv.bak/
 
 # ChromaDB
 backend/chroma_data/
+backend/chroma_db/
 chroma_data/
+chroma_db/
 
 # Uploads
 backend/uploads/
@@ -115,3 +129,13 @@ database/
 # Fix scripts
 backend/fix_passwords.py
 fix_passwords.py
+
+# Test/Debug files
+backend/test_*.py
+test_*.py
+IMPLEMENTATION_*.md
+*_SUMMARY.md
+
+# Virtual environment
+backend/venv/
+frontend/node_modules/

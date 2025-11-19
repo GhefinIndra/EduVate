@@ -72,3 +72,71 @@ class TopicUnderstanding(BaseModel):
 
 class TopicUnderstandingResponse(BaseModel):
     topics: List[TopicUnderstanding]
+
+# ===================================
+# Analytics - XP History
+# ===================================
+class XPDataPoint(BaseModel):
+    date: str  # Format: YYYY-MM-DD
+    xp: int
+    cumulative_xp: int
+
+class XPHistoryResponse(BaseModel):
+    data_points: List[XPDataPoint]
+    total_xp_gained: int
+    days_tracked: int
+
+# ===================================
+# Analytics - Quiz Performance Trend
+# ===================================
+class QuizPerformanceDataPoint(BaseModel):
+    quiz_id: str
+    quiz_title: str
+    topic_name: str
+    score_percentage: float
+    submitted_at: datetime
+
+class QuizPerformanceTrendResponse(BaseModel):
+    performances: List[QuizPerformanceDataPoint]
+    average_score: float
+    total_quizzes: int
+    trend: str  # "improving", "stable", "declining"
+
+# ===================================
+# Analytics - Activity Summary
+# ===================================
+class ActivitySummary(BaseModel):
+    total_chat_messages: int
+    total_documents_uploaded: int
+    total_quizzes_taken: int
+    total_study_days: int  # Days with any activity
+    most_active_topic: Optional[str] = None
+    study_streak_record: int
+
+class ActivitySummaryResponse(BaseModel):
+    summary: ActivitySummary
+    recent_activities: List[dict]  # Last 10 activities
+
+# ===================================
+# Analytics - Daily Activity for Heatmap
+# ===================================
+class DailyActivity(BaseModel):
+    date: str  # Format: YYYY-MM-DD
+    activity_count: int  # Total activities (quiz submissions + messages + uploads)
+    quizzes: int
+    messages: int
+    uploads: int
+
+class DailyActivityResponse(BaseModel):
+    activities: List[DailyActivity]
+    days_tracked: int
+    total_activity_count: int
+
+# ===================================
+# Dashboard Combined Response
+# ===================================
+class DashboardResponse(BaseModel):
+    stats: StatsResponse
+    progress: ProgressResponse
+    topic_understanding: TopicUnderstandingResponse
+    topics: List[dict]  # Same structure as /topics endpoint

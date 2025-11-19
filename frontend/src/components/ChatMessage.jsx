@@ -3,7 +3,8 @@ import { Bot, User as UserIcon, BookOpenCheck, ChevronDown } from 'lucide-react'
 import Citation from './Citation';
 
 const parseInlineSegments = (text) => {
-  const regex = /\*\*(.*?)\*\*/g;
+  // Combined regex for bold (**text**) and italic (*text*)
+  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
   const segments = [];
   let lastIndex = 0;
   let match;
@@ -12,7 +13,15 @@ const parseInlineSegments = (text) => {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', value: text.slice(lastIndex, match.index) });
     }
-    segments.push({ type: 'bold', value: match[1] });
+
+    if (match[2]) {
+      // Bold: **text**
+      segments.push({ type: 'bold', value: match[2] });
+    } else if (match[3]) {
+      // Italic: *text*
+      segments.push({ type: 'italic', value: match[3] });
+    }
+
     lastIndex = match.index + match[0].length;
   }
 
@@ -67,6 +76,16 @@ const InlineSegments = ({ segments, isUser }) => (
           </span>
         );
       }
+      if (segment.type === 'italic') {
+        return (
+          <span
+            key={`italic-${index}`}
+            className={isUser ? 'italic' : 'italic text-gray-600 dark:text-gray-400'}
+          >
+            {segment.value}
+          </span>
+        );
+      }
       return (
         <span key={`text-${index}`} className={isUser ? '' : 'text-gray-700 dark:text-gray-300'}>
           {segment.value}
@@ -84,7 +103,9 @@ export default function ChatMessage({ message }) {
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('id-ID', {
+    // Manual convert UTC to WIB (UTC+7)
+    const wibDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+    return wibDate.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
     });

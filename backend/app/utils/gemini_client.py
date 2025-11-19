@@ -17,34 +17,72 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # Custom prompt template untuk RAG
-RAG_PROMPT_TEMPLATE = """Kamu adalah Eduvate, tutor AI yang membantu mahasiswa memahami materi kuliah.
+RAG_PROMPT_TEMPLATE = """Kamu adalah Eduvate, asisten belajar yang friendly dan smart untuk mahasiswa Indonesia.
 
-Cara menjawab:
-- Mulai dengan sapaan singkat plus ringkasan 1 kalimat.
-- Tambahkan bagian **Inti Jawaban** yang berisi poin-poin penting dan cantumkan halaman sumber (misal: "(halaman 5)").
-- Jika relevan, tambahkan bagian **Detail Pendukung** untuk contoh atau penjelasan lanjutan.
-- Jika informasi tidak ditemukan pada konteks, jelaskan dengan kalimat sopan bahwa informasi tersebut belum ada di materi.
-- Akhiri dengan kalimat singkat berisi ajakan atau saran tindak lanjut.
-- Gunakan bahasa Indonesia yang natural dan mudah dipahami.
+KARAKTER & GAYA BICARA:
+- Santai tapi tetap informatif (seperti teman yang pintar dan suka bantu)
+- Pakai bahasa Indonesia yang natural, nggak terlalu formal tapi tetap jelas
+- Bisa ngobrol casual (hai, terima kasih, dll) tapi juga bisa deep dive ke materi
+- Gunakan markdown yang proper: **bold** untuk emphasis, *italic* untuk istilah penting, bullet points untuk list
+- Pastikan markdown syntax benar: JANGAN pake single asterisk di tengah kalimat, selalu gunakan **double asterisk** untuk bold
+- Kadang pakai emoji kalau konteksnya santai (tapi jangan berlebihan)
 
-KONTEKS:
+CARA MENJAWAB:
+1. **Kalau user menyapa** (HANYA jika pesan user benar-benar "hai", "halo", "selamat pagi", dll):
+   - Balas sapaan dengan hangat dan singkat
+   - Tawarkan bantuan terkait materi
+   
+2. **Kalau user bertanya/diskusi materi**:
+   - LANGSUNG jawab pertanyaan, JANGAN sapa dengan nama
+   - JANGAN mulai dengan "Hai [nama]!" atau "Wah, pertanyaan bagus!"
+   - Langsung masuk ke inti jawaban
+
+2. **Kalau pertanyaan tentang materi (bisa dijawab dari PDF)**:
+   - Prioritaskan info dari materi (cite halaman: "Berdasarkan materi halaman X...")
+   - Jelaskan dengan bahasa sendiri yang gampang dipahami (jangan copy-paste mentah)
+   - Tambahkan insight/context tambahan dari pengetahuanmu kalau relevan
+   - Gunakan analogi atau contoh kalau membantu pemahaman
+   - Format jawaban dengan struktur yang enak dibaca (heading, list, paragraf pendek)
+   - JANGAN mulai dengan sapaan atau pujian generik
+
+3. **Kalau pertanyaan di luar materi tapi masih topik terkait**:
+   - Jawab dari pengetahuanmu (konsep umum, penjelasan lebih luas, contoh nyata)
+   - Jelaskan kalau ini di luar materi: "Ini nggak ada di materi yang kamu upload, tapi..."
+   - Tetap relate ke konteks pembelajaran mereka
+
+4. **Kalau pertanyaan totally di luar scope**:
+   - Arahkan kembali ke fokus belajar dengan sopan
+   - Tawarkan bantuan terkait materi kuliah
+
+ATURAN PENTING:
+- JANGAN pernah mulai jawaban dengan "Hai [nama]!" atau "Wah, pertanyaan bagus!" kecuali user memang menyapa
+- JANGAN paksa format "Inti Jawaban" / "Detail Pendukung" - flow natural aja sesuai konteks
+- SELALU cite halaman kalau jawab dari PDF
+- Panjang jawaban disesuaikan: singkat kalau simple, detail kalau kompleks
+- Kalau nggak yakin, bilang aja "Aku nggak nemuin info spesifik tentang ini di materimu"
+- Fokus ke substansi jawaban, bukan basa-basi
+
+{user_context}
+
+MATERI DARI PDF:
 {context}
 
-PERTANYAAN TERBARU:
+PERTANYAAN:
 {question}
 
 JAWABAN:"""
 
 prompt = PromptTemplate(
     template=RAG_PROMPT_TEMPLATE,
-    input_variables=["context", "question"]
+    input_variables=["user_context", "context", "question"]
 )
 
 def generate_answer_from_context(
     query: str,
     doc_id: str = None,
     subject_id: str = None,
-    chat_history: Optional[List[Tuple[str, str]]] = None
+    chat_history: Optional[List[Tuple[str, str]]] = None,
+    user_name: Optional[str] = None
 ) -> Dict:
     """
     Generate answer menggunakan LangChain RetrievalQA (Multi-doc support)
@@ -55,6 +93,7 @@ def generate_answer_from_context(
         subject_id: Subject ID untuk multi-doc retrieval
         chat_history: Optional chat history untuk context
             Format: List of (user_message, ai_message) tuples
+        user_name: Optional user name for personalized responses
 
     Returns:
         {
@@ -81,7 +120,23 @@ def generate_answer_from_context(
                 "filter": filter_dict if filter_dict else None
             }
         )
-        
+
+        # Build user context string
+        user_context_str = ""
+        if user_name:
+            user_context_str = f"KONTEKS USER:\n- Nama user: {user_name}\n"
+        if chat_history and len(chat_history) > 0:
+            recent_history = chat_history[-5:]  # Last 5 exchanges
+            history_str = "\n".join([f"User: {q}\nAI: {a[:100]}..." for q, a in recent_history])
+            user_context_str += f"\nRIWAYAT CHAT SEBELUMNYA (untuk konteks):\n{history_str}\n"
+
+        # Update prompt with user context
+        custom_prompt = PromptTemplate(
+            template=RAG_PROMPT_TEMPLATE,
+            input_variables=["user_context", "context", "question"]
+        )
+        custom_prompt = custom_prompt.partial(user_context=user_context_str)
+
         source_docs = []
 
         if chat_history:
@@ -89,7 +144,7 @@ def generate_answer_from_context(
                 llm=llm,
                 retriever=retriever,
                 return_source_documents=True,
-                combine_docs_chain_kwargs={"prompt": prompt},
+                combine_docs_chain_kwargs={"prompt": custom_prompt},
                 verbose=False
             )
             result = qa_chain.invoke({
@@ -104,7 +159,7 @@ def generate_answer_from_context(
                 chain_type="stuff",  # combine all docs into one prompt
                 retriever=retriever,
                 return_source_documents=True,
-                chain_type_kwargs={"prompt": prompt}
+                chain_type_kwargs={"prompt": custom_prompt}
             )
             result = qa_chain.invoke({"query": query})
             answer_text = result.get("result", "")

@@ -32,3 +32,24 @@ class DocumentListResponse(BaseModel):
     """
     documents: list[DocumentInfo]
     total: int
+
+class BatchUploadResult(BaseModel):
+    """
+    Result untuk satu file dalam batch upload
+    """
+    filename: str
+    success: bool
+    doc_id: Optional[str] = None
+    pages: Optional[int] = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+    message: str
+
+class BatchUploadResponse(BaseModel):
+    """
+    Response untuk multiple file upload
+    """
+    results: list[BatchUploadResult]
+    total_files: int
+    successful: int
+    failed: int

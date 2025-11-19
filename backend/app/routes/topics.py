@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from mysql.connector import Error as MySQLError
+from psycopg2 import Error as PostgreSQLError
 import uuid
 from typing import List
 
@@ -7,12 +7,12 @@ from app.models.topic import (
     CreateTopicRequest, UpdateTopicRequest,
     TopicResponse, TopicListResponse, TopicDetailResponse
 )
-from app.database import get_db
+from app.database import get_db, get_dict_cursor
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/topics", tags=["Topics"])
 
-@router.post("/", response_model=TopicResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TopicResponse, status_code=status.HTTP_201_CREATED)
 def create_topic(
     request: CreateTopicRequest,
     user_id: str = Depends(get_current_user),
@@ -21,7 +21,7 @@ def create_topic(
     """
     Buat topik baru (e.g., "Materi Python", "Kalkulus 1")
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         topic_id = str(uuid.uuid4())
@@ -54,7 +54,7 @@ def create_topic(
             quiz_count=0
         )
 
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -63,7 +63,7 @@ def create_topic(
     finally:
         cursor.close()
 
-@router.get("/", response_model=TopicListResponse)
+@router.get("", response_model=TopicListResponse)
 def get_topics(
     user_id: str = Depends(get_current_user),
     db = Depends(get_db)
@@ -71,7 +71,7 @@ def get_topics(
     """
     Get semua topik milik user dengan stats (document count, chat count, quiz count)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Get topics dengan counts
@@ -126,7 +126,7 @@ def get_topic(
     """
     Get detail topik by ID dengan stats
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         cursor.execute(
@@ -178,7 +178,7 @@ def update_topic(
     """
     Update nama/deskripsi topik
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Verify topic exists & owned by user
@@ -249,7 +249,7 @@ def update_topic(
             quiz_count=topic['quiz_count']
         )
 
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -267,7 +267,7 @@ def delete_topic(
     """
     Delete topik (cascade delete semua documents, chats, quizzes di topik ini)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Verify topic exists & owned by user
@@ -293,7 +293,7 @@ def delete_topic(
 
         return None
 
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

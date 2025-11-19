@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { quizAPI } from '../api/quiz';
-import { ArrowLeft, Loader, Trophy, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader, Trophy, CheckCircle, XCircle, RotateCcw, FileDown, FileSpreadsheet } from 'lucide-react';
+import { exportQuizToPDF, exportQuizToCSV } from '../utils/exportUtils';
 
 export default function QuizResult() {
   const { quizId } = useParams();
@@ -42,6 +43,26 @@ export default function QuizResult() {
     navigate(`/topics/${quiz?.subject_id}/quizzes`);
   };
 
+  const handleExportPDF = () => {
+    try {
+      exportQuizToPDF(quiz);
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      exportQuizToCSV(quiz);
+      toast.success('CSV downloaded successfully!');
+    } catch (error) {
+      console.error('CSV export error:', error);
+      toast.error('Failed to export CSV');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -53,7 +74,6 @@ export default function QuizResult() {
   const score = quiz?.score || 0;
   const totalQuestions = quiz?.questions?.length || 0;
   const mcqQuestions = quiz?.questions?.filter(q => q.type === 'MCQ') || [];
-  const essayQuestions = quiz?.questions?.filter(q => q.type === 'ESSAY') || [];
 
   // Calculate MCQ score
   const correctMcq = mcqQuestions.filter(q => {
@@ -78,17 +98,17 @@ export default function QuizResult() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(`/topics/${quiz?.subject_id}/quizzes`)}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               >
                 <ArrowLeft size={20} />
               </button>
-              <h1 className="text-xl font-bold text-gray-900">Quiz Result</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Quiz Result</h1>
             </div>
           </div>
         </div>
@@ -96,27 +116,27 @@ export default function QuizResult() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Score Card */}
-        <div className="bg-white rounded-lg shadow p-8 mb-6 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 mb-6 text-center">
           <Trophy className={`mx-auto mb-4 ${scoreColor}`} size={64} />
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             {scoreLabel}
           </h2>
           <p className={`text-6xl font-bold mb-4 ${scoreColor}`}>
             {score}
           </p>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Completed on {new Date(quiz?.submitted_at).toLocaleString('id-ID')}
           </p>
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600">Total Questions</p>
-              <p className="text-2xl font-bold text-gray-900">{totalQuestions}</p>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Questions</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalQuestions}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600">MCQ Correct</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Score</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {correctMcq}/{mcqQuestions.length}
               </p>
             </div>
@@ -133,15 +153,33 @@ export default function QuizResult() {
             </button>
             <button
               onClick={handleViewQuizzes}
-              className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg font-medium transition"
+              className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
             >
               View All Quizzes
+            </button>
+          </div>
+
+          {/* Export Actions */}
+          <div className="flex gap-3 mt-3">
+            <button
+              onClick={handleExportPDF}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+            >
+              <FileDown size={18} />
+              Export PDF
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition"
+            >
+              <FileSpreadsheet size={18} />
+              Export CSV
             </button>
           </div>
         </div>
 
         {/* Detailed Results */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Detailed Results</h3>
 
           <div className="space-y-6">
@@ -153,12 +191,12 @@ export default function QuizResult() {
               return (
                 <div key={question.id} className="border-b border-gray-200 pb-6 last:border-0">
                   <div className="flex gap-3 mb-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center font-bold text-sm">
+                    <span className="flex-shrink-0 w-8 h-8 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center font-bold text-sm">
                       {index + 1}
                     </span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
+                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
                           {question.type === 'MCQ' ? 'Multiple Choice' : 'Essay'}
                         </span>
                         {question.type === 'MCQ' && (
@@ -175,7 +213,7 @@ export default function QuizResult() {
                           )
                         )}
                       </div>
-                      <h4 className="font-medium text-gray-900">{question.question}</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white">{question.question}</h4>
                     </div>
                   </div>
 
@@ -199,8 +237,8 @@ export default function QuizResult() {
                                 : 'border-gray-200'
                             }`}
                           >
-                            <span className="font-medium text-gray-900">{option}.</span>{' '}
-                            <span className="text-gray-700">{optionText}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{option}.</span>{' '}
+                            <span className="text-gray-700 dark:text-gray-300">{optionText}</span>
                             {isCorrectAnswer && (
                               <span className="ml-2 text-xs text-green-700 font-medium">
                                 ✓ Correct Answer
@@ -218,7 +256,7 @@ export default function QuizResult() {
                   ) : (
                     <div className="ml-11">
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 mb-2 font-medium">Your Answer:</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Your Answer:</p>
                         <p className="text-gray-900 whitespace-pre-wrap">{userAnswer || 'No answer provided'}</p>
                       </div>
                       {question.ai_feedback && (

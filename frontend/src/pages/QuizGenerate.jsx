@@ -6,7 +6,7 @@ import { topicsAPI } from '../api/topics';
 import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { ArrowLeft, Loader, Plus, Sparkles, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader, Sparkles, FileText, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function QuizGenerate() {
@@ -81,7 +81,7 @@ export default function QuizGenerate() {
         <div className="mb-8">
           <button
             onClick={() => navigate(`/topics/${topicId}`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary-600 mb-4 transition"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-4 transition"
           >
             <ArrowLeft size={20} />
             <span>Back to Topic</span>
@@ -93,16 +93,16 @@ export default function QuizGenerate() {
                 <Sparkles className="text-primary-600" size={32} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Generate Quiz</h1>
-                <p className="text-gray-600 mt-1">{topic?.name}</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Generate Quiz</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{topic?.name}</p>
               </div>
             </div>
             {topic?.description && (
-              <p className="text-gray-600 text-sm p-4 bg-gray-50 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400 text-sm p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 {topic.description}
               </p>
             )}
-            <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+            <div className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <FileText size={16} />
               <span>{topic?.document_count || 0} documents available</span>
             </div>
@@ -111,7 +111,7 @@ export default function QuizGenerate() {
 
         {/* Generation Form */}
         <Card className="p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Configure Quiz</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Configure Quiz</h3>
 
           <form onSubmit={handleGenerate} className="space-y-6">
             {/* MCQ Count */}
@@ -120,7 +120,7 @@ export default function QuizGenerate() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                 Multiple Choice Questions
               </label>
               <div className="flex items-center gap-4">
@@ -129,14 +129,14 @@ export default function QuizGenerate() {
                   min="1"
                   max="10"
                   value={nMcq}
-                  onChange={(e) => setNMcq(parseInt(e.target.value))}
+                  onChange={(e) => setNMcq(Number.parseInt(e.target.value, 10))}
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
                 />
                 <div className="w-16 text-center">
                   <span className="text-2xl font-bold text-primary-600">{nMcq}</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-1">
                 <AlertCircle size={12} />
                 Between 1-10 questions
               </p>
@@ -148,7 +148,7 @@ export default function QuizGenerate() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                 Essay Questions
               </label>
               <div className="flex items-center gap-4">
@@ -157,14 +157,14 @@ export default function QuizGenerate() {
                   min="1"
                   max="5"
                   value={nEssay}
-                  onChange={(e) => setNEssay(parseInt(e.target.value))}
+                  onChange={(e) => setNEssay(Number.parseInt(e.target.value, 10))}
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-secondary-600"
                 />
                 <div className="w-16 text-center">
                   <span className="text-2xl font-bold text-secondary-600">{nEssay}</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-1">
                 <AlertCircle size={12} />
                 Between 1-5 questions
               </p>
@@ -175,10 +175,10 @@ export default function QuizGenerate() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200"
+              className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
             >
-              <p className="text-sm font-medium text-gray-700 mb-2">Quiz Summary:</p>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quiz Summary:</p>
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                 <span className="font-semibold">{nMcq + nEssay} total questions</span>
                 <span>•</span>
                 <span>{nMcq} MCQ</span>

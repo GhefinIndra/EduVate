@@ -2,25 +2,55 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { Sparkles, ShieldCheck, Lock, Mail, User } from 'lucide-react';
+import { Sparkles, ShieldCheck, Lock, Mail, User, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import AuthLayout from '../components/AuthLayout';
 import { authAPI } from '../api/auth';
 import { authHeroStats, authHeroHighlights } from '../data/authContent';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Register() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm();
+  } = useForm({
+    mode: 'onChange', // Validate on every change
+  });
 
   const passwordValue = watch('password', '');
+
+  // 🔥 Password strength validator
+  const getPasswordStrength = (password) => {
+    if (!password) return null;
+
+    const requirements = {
+      minLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+
+    const metCount = Object.values(requirements).filter(Boolean).length;
+    
+    let strength = 'weak';
+    let percentage = (metCount / 5) * 100;
+    
+    if (metCount >= 5) strength = 'strong';
+    else if (metCount >= 3) strength = 'medium';
+
+    return { requirements, strength, percentage };
+  };
+
+  const passwordAnalysis = getPasswordStrength(passwordValue);
 
   const onSubmit = async (data) => {
     setLoading(true);
@@ -175,7 +205,7 @@ export default function Register() {
             />
             <input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               {...register('password', {
                 required: 'Password is required',
@@ -183,11 +213,104 @@ export default function Register() {
                   value: 8,
                   message: 'Password must be at least 8 characters',
                 },
+                validate: (value) => {
+                  const analysis = getPasswordStrength(value);
+                  if (!analysis) return 'Password is required';
+                  const allMet = Object.values(analysis.requirements).every(Boolean);
+                  return allMet || 'Password does not meet all requirements';
+                }
               })}
-              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 dark:focus:ring-secondary-900 transition"
+              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 pr-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 dark:focus:ring-secondary-900 transition"
               placeholder="Create a strong password"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmit(onSubmit)();
+                }
+              }}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
+
+          {/* 🔥 Password Strength Indicator */}
+          <AnimatePresence>
+            {passwordValue && passwordAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 space-y-3"
+              >
+                {/* Strength Bar */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Password Strength
+                    </span>
+                    <span className={`text-xs font-bold uppercase ${
+                      passwordAnalysis.strength === 'strong' 
+                        ? 'text-green-600 dark:text-green-400'
+                        : passwordAnalysis.strength === 'medium'
+                        ? 'text-yellow-600 dark:text-yellow-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {passwordAnalysis.strength}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      className={`h-2 rounded-full ${
+                        passwordAnalysis.strength === 'strong'
+                          ? 'bg-green-500'
+                          : passwordAnalysis.strength === 'medium'
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${passwordAnalysis.percentage}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Requirements Checklist */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Password must contain:
+                  </p>
+                  {[
+                    { key: 'minLength', label: 'At least 8 characters' },
+                    { key: 'hasUpperCase', label: 'One uppercase letter (A-Z)' },
+                    { key: 'hasLowerCase', label: 'One lowercase letter (a-z)' },
+                    { key: 'hasNumber', label: 'One number (0-9)' },
+                    { key: 'hasSpecial', label: 'One special character (!@#$%^&*)' }
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      {passwordAnalysis.requirements[key] ? (
+                        <CheckCircle2 className="text-green-500 flex-shrink-0" size={16} />
+                      ) : (
+                        <X className="text-gray-400 flex-shrink-0" size={16} />
+                      )}
+                      <span className={`text-xs ${
+                        passwordAnalysis.requirements[key]
+                          ? 'text-green-700 dark:text-green-400 font-medium'
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {errors.password && (
             <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
           )}
@@ -204,16 +327,29 @@ export default function Register() {
             />
             <input
               id="confirmPassword"
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               autoComplete="new-password"
               {...register('confirmPassword', {
                 required: 'Please confirm your password',
                 validate: (value) => value === passwordValue || 'Passwords do not match',
               })}
-              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 dark:focus:ring-secondary-900 transition"
+              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 pr-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 dark:focus:ring-secondary-900 transition"
               placeholder="Repeat password"
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
+          {watch('confirmPassword') && watch('confirmPassword') === passwordValue && (
+            <p className="mt-1 text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+              <CheckCircle2 size={14} />
+              Passwords match!
+            </p>
+          )}
           {errors.confirmPassword && (
             <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirmPassword.message}</p>
           )}

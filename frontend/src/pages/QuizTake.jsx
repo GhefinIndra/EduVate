@@ -6,8 +6,8 @@ import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import QuizSubmitModal from '../components/QuizSubmitModal';
-import { ArrowLeft, Loader, Send, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Loader, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function QuizTake() {
   const { quizId } = useParams();
@@ -94,7 +94,7 @@ export default function QuizTake() {
       const response = await quizAPI.submit(quizId, answersArray);
       const submissionId = response.data.submission_id;
       toast.success('Quiz submitted successfully!');
-      navigate(`/quiz/submission/${submissionId}/review`);
+      navigate(`/quiz/${quizId}/result`);
     } catch (error) {
       const message = error.response?.data?.detail || 'Failed to submit quiz';
       toast.error(message);
@@ -124,7 +124,7 @@ export default function QuizTake() {
         <div className="mb-8">
           <button
             onClick={() => navigate(`/topics/${quiz?.subject_id}/quizzes`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary-600 mb-4 transition"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-4 transition"
           >
             <ArrowLeft size={20} />
             <span>Back to Quizzes</span>
@@ -133,10 +133,10 @@ export default function QuizTake() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
                   {isCompleted ? 'View Quiz' : 'Take Quiz'}
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400">
                   {quiz?.questions.length} questions
                 </p>
               </div>
@@ -150,7 +150,7 @@ export default function QuizTake() {
 
             {!isCompleted && (
               <div>
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
                   <span>Progress: {answeredCount}/{quiz?.questions.length} answered</span>
                   <span>{Math.round(progress)}%</span>
                 </div>
@@ -214,7 +214,7 @@ export default function QuizTake() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 leading-relaxed">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed">
                       {question.question}
                     </h3>
                   </div>
@@ -243,7 +243,7 @@ export default function QuizTake() {
                               ? 'border-red-500 bg-gradient-to-r from-red-50 to-red-100 shadow-sm'
                               : isSelected
                               ? 'border-primary-500 bg-gradient-to-r from-primary-50 to-secondary-50 shadow-sm'
-                              : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                           } ${isCompleted ? 'cursor-not-allowed' : ''}`}
                         >
                           <input
@@ -256,8 +256,8 @@ export default function QuizTake() {
                             className="mt-1 text-primary-600 focus:ring-primary-500"
                           />
                           <div className="flex-1">
-                            <span className="font-bold text-gray-900">{option}.</span>{' '}
-                            <span className="text-gray-700">{optionText}</span>
+                            <span className="font-bold text-gray-900 dark:text-white">{option}.</span>{' '}
+                            <span className="text-gray-700 dark:text-gray-300">{optionText}</span>
                             {showCorrect && (
                               <div className="mt-2 flex items-center gap-1 text-sm text-green-700 font-semibold">
                                 <CheckCircle2 size={16} />
@@ -283,7 +283,7 @@ export default function QuizTake() {
                       placeholder="Write your detailed answer here..."
                       rows={6}
                       disabled={isCompleted}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none disabled:bg-gray-50 disabled:cursor-not-allowed transition"
+                      className="w-full border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition dark:bg-gray-800 dark:text-white"
                     />
                     <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                       <AlertCircle size={12} />

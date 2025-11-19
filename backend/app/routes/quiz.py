@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from mysql.connector import Error as MySQLError
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from psycopg2 import Error as PostgreSQLError
 import uuid
 import json
 from typing import List
+
+from app.utils.cache import invalidate_user_cache
 
 from app.models.quiz import (
     GenerateQuizRequest, QuizResponse, QuestionResponse,
     SubmitAnswerRequest, SubmissionResponse, QuestionFeedback,
     QuizHistoryResponse, QuizHistoryItem, QuizListResponse, QuizListItem
 )
-from app.database import get_db
+from app.database import get_db, get_dict_cursor
 from app.auth import get_current_user
 from app.utils.quiz_generator import generate_quiz_from_document
 from app.utils.grader import grade_submission
@@ -33,7 +35,7 @@ def generate_quiz(
     3. Save quiz & questions ke DB
     4. Return quiz dengan questions
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # 1. Verify topic exists
@@ -128,7 +130,7 @@ def generate_quiz(
             created_at=quiz['created_at']
         )
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -152,7 +154,7 @@ def list_quizzes(
     """
     Get all quizzes for user (optionally filter by subject_id)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         if subject_id:
@@ -240,7 +242,7 @@ def get_quiz(
     """
     Get quiz questions for taking/retaking (no answers included)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Get quiz
@@ -275,7 +277,9 @@ def get_quiz(
         question_responses = []
         for q in questions:
             # Parse JSON options
-            options = json.loads(q['options']) if q['options'] else None
+            options = q['options']
+            if options and isinstance(options, str):
+                options = json.loads(options)
 
             # Convert list format to dict format (backward compatibility)
             if options and isinstance(options, list):
@@ -316,7 +320,7 @@ def get_quiz_submissions(
     """
     Get all submissions/attempts for a specific quiz
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Verify quiz exists and owned by user
@@ -375,7 +379,7 @@ def get_submission_detail(
     """
     Get submission detail for review (with answers and feedback)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Get submission
@@ -418,7 +422,9 @@ def get_submission_detail(
 
         for q in questions:
             # Parse JSON options
-            options = json.loads(q['options']) if q['options'] else None
+            options = q['options']
+            if options and isinstance(options, str):
+                options = json.loads(options)
 
             # Convert list format to dict format (backward compatibility)
             if options and isinstance(options, list):
@@ -471,7 +477,7 @@ def submit_quiz(
     5. Update XP (gamification)
     6. Return grading result
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # 1. Verify quiz
@@ -499,8 +505,10 @@ def submit_quiz(
         # Parse JSON fields & add to questions
         questions = []
         for q in questions_raw:
-            q['options'] = json.loads(q['options']) if q['options'] else None
-            q['rubric_keywords'] = json.loads(q['rubric_keywords']) if q['rubric_keywords'] else None
+            if q['options'] and isinstance(q['options'], str):
+                q['options'] = json.loads(q['options'])
+            if q['rubric_keywords'] and isinstance(q['rubric_keywords'], str):
+                q['rubric_keywords'] = json.loads(q['rubric_keywords'])
             questions.append(q)
         
         # 3. Grade submission
@@ -594,6 +602,9 @@ def submit_quiz(
         
         percentage = round((submission['total_score'] / submission['max_score']) * 100, 2) if submission['max_score'] > 0 else 0
         
+        # Invalidate user cache (stats, progress, dashboard affected)
+        invalidate_user_cache(user_id)
+        
         return SubmissionResponse(
             submission_id=submission['id'],
             quiz_id=submission['quiz_id'],
@@ -604,7 +615,7 @@ def submit_quiz(
             submitted_at=submission['submitted_at']
         )
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -627,7 +638,7 @@ def get_quiz_history(
     """
     Get quiz history user
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         cursor.execute(
@@ -664,3 +675,4 @@ def get_quiz_history(
         
     finally:
         cursor.close()
+

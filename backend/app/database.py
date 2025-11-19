@@ -1,17 +1,13 @@
-import mysql.connector
-from mysql.connector import pooling
+import psycopg2
+from psycopg2 import pool
+from psycopg2.extras import RealDictCursor
 from app.config import settings
 
-# Create MySQL connection pool
-connection_pool = pooling.MySQLConnectionPool(
-    pool_name="asked_pool",
-    pool_size=20,  # Increased to handle concurrent dashboard API requests
-    pool_reset_session=True,
-    host=settings.DB_HOST,
-    port=settings.DB_PORT,
-    user=settings.DB_USER,
-    password=settings.DB_PASSWORD,
-    database=settings.DB_NAME
+# Create PostgreSQL connection pool
+connection_pool = pool.SimpleConnectionPool(
+    1,  # minconn
+    20,  # maxconn - handle concurrent requests
+    settings.DATABASE_URL
 )
 
 def get_db_connection():
@@ -19,11 +15,17 @@ def get_db_connection():
     Get connection from pool
     """
     try:
-        connection = connection_pool.get_connection()
+        connection = connection_pool.getconn()
         return connection
-    except mysql.connector.Error as err:
+    except psycopg2.Error as err:
         print(f"Database connection error: {err}")
         raise
+
+def get_dict_cursor(connection):
+    """
+    Helper to get dictionary cursor (like MySQL dictionary=True)
+    """
+    return connection.cursor(cursor_factory=RealDictCursor)
 
 def get_db():
     """
@@ -34,4 +36,4 @@ def get_db():
     try:
         yield connection
     finally:
-        connection.close()
+        connection_pool.putconn(connection)

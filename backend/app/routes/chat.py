@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from mysql.connector import Error as MySQLError
+from psycopg2 import Error as PostgreSQLError
 import uuid
 import json
 from typing import List, Tuple
@@ -8,7 +8,7 @@ from app.models.chat import (
     CreateSessionRequest, SessionResponse, SendMessageRequest,
     MessageResponse, ChatHistoryResponse, Citation
 )
-from app.database import get_db
+from app.database import get_db, get_dict_cursor
 from app.auth import get_current_user
 from app.utils.gemini_client import generate_answer_from_context, generate_session_title
 from app.utils.badge_checker import update_streak, check_and_unlock_badges
@@ -24,7 +24,7 @@ def create_session(
     """
     Buat chat session baru untuk topik (multi-doc chat)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         # Verify topic exists & owned by user
@@ -58,7 +58,7 @@ def create_session(
 
         return SessionResponse(**session)
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -77,7 +77,7 @@ def list_sessions(
     List semua chat sessions
     Optional: filter by subject_id
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
 
     try:
         if subject_id:
@@ -110,13 +110,20 @@ def list_sessions(
 @router.get("/sessions/{session_id}/messages", response_model=ChatHistoryResponse)
 def get_chat_history(
     session_id: str,
+    limit: int = 50,
+    offset: int = 0,
     user_id: str = Depends(get_current_user),
     db = Depends(get_db)
 ):
     """
-    Get chat history dari session
+    Get chat history dari session dengan pagination
+    
+    Args:
+        session_id: Chat session ID
+        limit: Number of messages to return (default 50)
+        offset: Starting position (default 0)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # Verify session ownership
@@ -130,27 +137,37 @@ def get_chat_history(
                 detail="Session not found"
             )
         
-        # Get messages
+        # Get total count
+        cursor.execute(
+            "SELECT COUNT(*) as total FROM chat_messages WHERE session_id = %s",
+            (session_id,)
+        )
+        total_count = cursor.fetchone()['total']
+        
+        # Get messages with pagination
         cursor.execute(
             """
             SELECT id, session_id, role, content, citations, created_at
             FROM chat_messages
             WHERE session_id = %s
             ORDER BY created_at ASC
+            LIMIT %s OFFSET %s
             """,
-            (session_id,)
+            (session_id, limit, offset)
         )
         messages = cursor.fetchall()
         
         # Parse citations JSON
         for msg in messages:
             if msg['citations']:
-                msg['citations'] = json.loads(msg['citations'])
+                if isinstance(msg['citations'], str):
+                    msg['citations'] = json.loads(msg['citations'])
+                # else already a list from PostgreSQL JSONB
         
         return ChatHistoryResponse(
             session_id=session_id,
             messages=[MessageResponse(**m) for m in messages],
-            total=len(messages)
+            total=total_count
         )
         
     finally:
@@ -175,7 +192,7 @@ def send_message(
     6. Save assistant message
     7. Update session title (jika chat pertama)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # 1. Verify session & get subject_id
@@ -227,13 +244,19 @@ def send_message(
         if len(chat_history_pairs) > 5:
             chat_history_pairs = chat_history_pairs[-5:]
 
+        # 2b. Get user name from database
+        cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
+        user_data = cursor.fetchone()
+        user_name = user_data['name'] if user_data else None
+
         # 3. Generate answer dengan LangChain (MULTI-DOC retrieval + generation)
         try:
             print(f"[DEBUG] Calling LangChain with subject_id: {subject_id}, query: {request.content[:50]}...")
             result = generate_answer_from_context(
                 query=request.content,
                 subject_id=subject_id,  # Multi-doc retrieval dari semua docs dalam topic
-                chat_history=chat_history_pairs if chat_history_pairs else None
+                chat_history=chat_history_pairs if chat_history_pairs else None,
+                user_name=user_name
             )
             print(f"[DEBUG] LangChain result: {result.keys()}")
         except Exception as lang_err:
@@ -268,12 +291,12 @@ def send_message(
         if msg_count == 2:  # First Q&A (user + assistant)
             title = generate_session_title(request.content)
             cursor.execute(
-                "UPDATE chat_sessions SET title = %s, updated_at = NOW() WHERE id = %s",
+                "UPDATE chat_sessions SET title = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                 (title, session_id)
             )
         else:
             cursor.execute(
-                "UPDATE chat_sessions SET updated_at = NOW() WHERE id = %s",
+                "UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                 (session_id,)
             )
         
@@ -293,11 +316,14 @@ def send_message(
             (assistant_msg_id,)
         )
         message = cursor.fetchone()
-        message['citations'] = json.loads(message['citations'])
+        if message['citations']:
+            if isinstance(message['citations'], str):
+                message['citations'] = json.loads(message['citations'])
+            # else already a list from PostgreSQL JSONB
         
         return MessageResponse(**message)
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -321,7 +347,7 @@ def delete_session(
     """
     Delete chat session (CASCADE delete messages)
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # Verify ownership
@@ -341,7 +367,7 @@ def delete_session(
         
         return {"message": "Session deleted successfully"}
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

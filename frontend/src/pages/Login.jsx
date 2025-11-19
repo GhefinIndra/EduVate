@@ -2,27 +2,33 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { Sparkles, ShieldCheck, Lock, Mail } from 'lucide-react';
+import { Sparkles, ShieldCheck, Lock, Mail, AlertCircle } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import AuthLayout from '../components/AuthLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../api/auth';
 import { authHeroStats, authHeroHighlights } from '../data/authContent';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm();
+  } = useForm({
+    mode: 'onChange', // Validate on every change
+  });
 
   const onSubmit = async (data) => {
     setLoading(true);
+    setLoginError(null); // Clear previous errors
+    
     try {
       const response = await authAPI.login(data);
       const { access_token, user_id, name, email } = response.data;
@@ -31,8 +37,27 @@ export default function Login() {
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error) {
-      const message = error.response?.data?.detail || 'Login failed';
-      toast.error(message);
+      // Get detailed error message
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error
+        const detail = error.response.data?.detail;
+        
+        if (error.response.status === 401) {
+          errorMessage = 'Invalid email or password';
+        } else if (error.response.status === 422) {
+          errorMessage = 'Please check your email and password';
+        } else if (detail) {
+          errorMessage = detail;
+        }
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      setLoginError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -102,7 +127,44 @@ export default function Login() {
         <p className="text-gray-600 dark:text-gray-400 mt-1.5">Continue your personalized learning journey.</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Error Alert */}
+      <AnimatePresence>
+        {loginError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3"
+          >
+            <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-1">Login Failed</h4>
+              <p className="text-sm text-red-700 dark:text-red-300">{loginError}</p>
+            </div>
+            <button
+              onClick={() => setLoginError(null)}
+              className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+            e.preventDefault();
+            handleSubmit(onSubmit)();
+          }
+        }}
+        className="space-y-4"
+        noValidate
+      >
         <div>
           <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Email
@@ -123,12 +185,18 @@ export default function Login() {
                   message: 'Invalid email address',
                 },
               })}
-              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition"
+              className={`w-full rounded-2xl border ${
+                errors.email ? 'border-red-500 dark:border-red-400' : 'border-gray-200 dark:border-gray-600'
+              } bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition`}
               placeholder="student@example.com"
+              onChange={() => setLoginError(null)} // Clear error on input change
             />
           </div>
           {errors.email && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle size={14} />
+              {errors.email.message}
+            </p>
           )}
         </div>
 
@@ -152,12 +220,18 @@ export default function Login() {
                   message: 'Password must be at least 6 characters',
                 },
               })}
-              className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition"
+              className={`w-full rounded-2xl border ${
+                errors.password ? 'border-red-500 dark:border-red-400' : 'border-gray-200 dark:border-gray-600'
+              } bg-white/70 dark:bg-gray-700/50 px-4 py-3 pl-12 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition`}
               placeholder="********"
+              onChange={() => setLoginError(null)} // Clear error on input change
             />
           </div>
           {errors.password && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+              <AlertCircle size={14} />
+              {errors.password.message}
+            </p>
           )}
         </div>
 

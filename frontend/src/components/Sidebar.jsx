@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
+  BarChart3,
   Folder,
   LogOut,
   Menu,
@@ -16,6 +17,7 @@ import { topicsAPI } from '../api/topics';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
 export default function Sidebar() {

@@ -8,6 +8,7 @@ import { AnimatePresence } from 'framer-motion';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Analytics from './pages/Analytics';
 import Topics from './pages/Topics';
 import TopicDetail from './pages/TopicDetail';
 import TopicChat from './pages/TopicChat';
@@ -57,6 +58,14 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/topics"

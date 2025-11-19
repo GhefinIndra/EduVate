@@ -6,6 +6,7 @@ import { documentsAPI } from '../api/documents';
 import ChatMessage from '../components/ChatMessage';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import ConfirmDialog from '../components/ConfirmDialog';
 import {
   ArrowLeft,
   Plus,
@@ -21,7 +22,7 @@ import {
 
 const cleanSessionTitle = (title) => {
   if (!title) return 'Untitled chat';
-  const cleaned = title.replace(/^(judul|title)\s*[:\-]\s*/i, '').trim();
+  const cleaned = title.replace(/^(judul|title)\s*[:-]\s*/i, '').trim();
   return cleaned || 'Untitled chat';
 };
 
@@ -38,6 +39,7 @@ export default function Chat() {
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, sessionId: null });
 
   useEffect(() => {
     fetchInitialData();
@@ -93,21 +95,36 @@ export default function Chat() {
 
   const handleDeleteSession = async (sessionId, e) => {
     e.stopPropagation();
+    setConfirmDialog({ isOpen: true, sessionId });
+  };
 
-    if (!window.confirm('Delete this chat?')) return;
+  const confirmDelete = async () => {
+    const sessionIdToDelete = confirmDialog.sessionId;
+    setConfirmDialog({ isOpen: false, sessionId: null });
+    
+    // Optimistic update - remove from UI immediately
+    const previousSessions = [...sessions];
+    const previousSelectedSession = selectedSession;
+    const previousMessages = [...messages];
+    
+    setSessions((prev) => prev.filter((s) => (s.session_id || s.id) !== sessionIdToDelete));
 
+    if (selectedSession && (selectedSession.session_id || selectedSession.id) === sessionIdToDelete) {
+      setSelectedSession(null);
+      setMessages([]);
+    }
+
+    const toastId = toast.loading('Deleting chat...');
+    
     try {
-      await chatAPI.deleteSession(sessionId);
-      setSessions((prev) => prev.filter((s) => (s.session_id || s.id) !== sessionId));
-
-      if (selectedSession && (selectedSession.session_id || selectedSession.id) === sessionId) {
-        setSelectedSession(null);
-        setMessages([]);
-      }
-
-      toast.success('Chat deleted');
+      await chatAPI.deleteSession(sessionIdToDelete);
+      toast.success('Chat deleted!', { id: toastId });
     } catch (error) {
-      toast.error('Failed to delete chat');
+      // Rollback on error
+      setSessions(previousSessions);
+      setSelectedSession(previousSelectedSession);
+      setMessages(previousMessages);
+      toast.error('Failed to delete chat', { id: toastId });
     }
   };
 
@@ -197,7 +214,7 @@ export default function Chat() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Chatting with
               </p>
-              <h1 className="text-2xl font-bold text-gray-900 mt-1">{docInfo.title}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{docInfo.title}</h1>
               <p className="text-sm text-gray-500 mt-1">Uploaded {formatDate(docInfo.created_at)}</p>
             </div>
             <div className="flex flex-wrap gap-4">
@@ -210,14 +227,14 @@ export default function Chat() {
               </div>
               <div className="rounded-2xl bg-secondary-50 px-4 py-3">
                 <p className="text-xs font-semibold text-secondary-600 uppercase">Sessions</p>
-                <div className="flex items-center gap-2 mt-1 text-lg font-semibold text-gray-900">
+                <div className="flex items-center gap-2 mt-1 text-lg font-semibold text-gray-900 dark:text-white">
                   <MessageSquare size={18} className="text-secondary-600" />
                   {sessions.length}
                 </div>
               </div>
-              <div className="rounded-2xl bg-gray-50 px-4 py-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Status</p>
-                <div className="flex items-center gap-2 mt-1 text-lg font-semibold text-gray-900">
+              <div className="rounded-2xl bg-gray-50 dark:bg-gray-700 px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</p>
+                <div className="flex items-center gap-2 mt-1 text-lg font-semibold text-gray-900 dark:text-white">
                   <Sparkles size={18} className="text-amber-500" />
                   {docInfo.status}
                 </div>
@@ -232,7 +249,7 @@ export default function Chat() {
             <div className="p-5 border-b border-gray-100 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Chat Sessions</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Chat Sessions</p>
                   <p className="text-xs text-gray-500">Kelola percakapanmu untuk dokumen ini</p>
                 </div>
                 {sessions.length > 0 && (
@@ -365,7 +382,7 @@ export default function Chat() {
                   {loading && (
                     <div className="flex items-center gap-2 text-sm text-gray-500 animate-pulse">
                       <span className="inline-flex h-2 w-2 rounded-full bg-gray-400"></span>
-                      <span>EduVate AI is thinking...</span>
+                      <span>EduV ate AI is thinking...</span>
                     </div>
                   )}
 
@@ -405,6 +422,18 @@ export default function Chat() {
           </Card>
         </div>
       </div>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, sessionId: null })}
+        onConfirm={confirmDelete}
+        title="Delete Chat"
+        message="Are you sure you want to delete this chat session? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

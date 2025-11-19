@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { quizAPI } from '../api/quiz';
+import { exportQuizToPDF, exportQuizToCSV } from '../utils/exportUtils';
 import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { ArrowLeft, Loader, CheckCircle, XCircle, Trophy, Sparkles, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader, CheckCircle, XCircle, Trophy, Sparkles, RotateCcw, FileDown, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 
@@ -39,6 +40,26 @@ export default function SubmissionReview() {
     }
   };
 
+  const handleExportPDF = () => {
+    try {
+      exportQuizToPDF(quiz);
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      exportQuizToCSV(quiz);
+      toast.success('CSV downloaded successfully!');
+    } catch (error) {
+      console.error('CSV export error:', error);
+      toast.error('Failed to export CSV');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -66,7 +87,7 @@ export default function SubmissionReview() {
       ? 'from-blue-50 to-blue-100'
       : score >= 40
       ? 'from-yellow-50 to-yellow-100'
-      : 'from-red-50 to-red-100';
+      : 'from-red-100 to-red-200 dark:from-red-900/40 dark:to-red-800/40';
 
   const scoreLabel =
     score >= 80
@@ -94,7 +115,7 @@ export default function SubmissionReview() {
         <div className="mb-8">
           <button
             onClick={() => navigate(`/quiz/${quiz?.quiz_id}/detail`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary-600 mb-4 transition"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-4 transition"
           >
             <ArrowLeft size={20} />
             <span>Back to Quiz</span>
@@ -115,7 +136,7 @@ export default function SubmissionReview() {
             >
               <Trophy className={`mx-auto mb-4 bg-gradient-to-r ${scoreColor} bg-clip-text text-transparent`} size={80} />
             </motion.div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">{scoreLabel}</h2>
+            <h2 className="text-3xl font-bold text-gray-700 dark:text-gray-200 mb-2">{scoreLabel}</h2>
             <motion.p
               className={`text-7xl font-bold mb-4 bg-gradient-to-r ${scoreColor} bg-clip-text text-transparent`}
               initial={{ opacity: 0, y: 20 }}
@@ -124,7 +145,7 @@ export default function SubmissionReview() {
             >
               {score.toFixed(1)}
             </motion.p>
-            <p className="text-gray-600 font-medium">
+            <p className="text-gray-600 dark:text-gray-400 font-medium">
               Submitted on {new Date(quiz?.submitted_at).toLocaleString('id-ID')}
             </p>
 
@@ -134,19 +155,19 @@ export default function SubmissionReview() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white/70 backdrop-blur rounded-xl p-4 shadow-sm"
+                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur rounded-xl p-4 shadow-sm"
               >
-                <p className="text-sm text-gray-600 font-medium">Total Questions</p>
-                <p className="text-3xl font-bold text-gray-900">{quiz?.total_questions}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Questions</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">{quiz?.total_questions}</p>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white/70 backdrop-blur rounded-xl p-4 shadow-sm"
+                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur rounded-xl p-4 shadow-sm"
               >
-                <p className="text-sm text-gray-600 font-medium">MCQ Correct</p>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">MCQ Correct</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {correctMcq}/{mcqQuestions.length}
                 </p>
               </motion.div>
@@ -156,7 +177,7 @@ export default function SubmissionReview() {
 
         {/* Detailed Review */}
         <Card className="p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
             <Sparkles className="text-primary-600" size={24} />
             Detailed Review
           </h3>
@@ -202,7 +223,7 @@ export default function SubmissionReview() {
                           )
                         )}
                       </div>
-                      <h4 className="font-semibold text-gray-900 text-lg">{question.question}</h4>
+                      <h4 className="font-semibold text-gray-900 dark:text-white text-lg">{question.question}</h4>
                     </div>
                   </div>
 
@@ -220,22 +241,22 @@ export default function SubmissionReview() {
                             key={option}
                             className={`p-4 border-2 rounded-xl ${
                               isCorrectAnswer
-                                ? 'border-green-500 bg-gradient-to-r from-green-50 to-green-100'
+                                ? 'border-green-500 bg-green-100 dark:bg-green-900/30'
                                 : isUserAnswer
-                                ? 'border-red-500 bg-gradient-to-r from-red-50 to-red-100'
-                                : 'border-gray-200 bg-gray-50'
+                                ? 'border-red-500 bg-red-100 dark:bg-red-900/30'
+                                : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
                             }`}
                           >
-                            <span className="font-bold text-gray-900">{option}.</span>{' '}
-                            <span className="text-gray-700">{optionText}</span>
+                            <span className="font-bold text-gray-900 dark:text-white">{option}.</span>{' '}
+                            <span className="text-gray-900 dark:text-white font-semibold">{optionText}</span>
                             {isCorrectAnswer && (
-                              <div className="mt-2 flex items-center gap-1 text-sm text-green-700 font-semibold">
+                              <div className="mt-2 flex items-center gap-1 text-sm text-green-800 dark:text-green-300 font-bold">
                                 <CheckCircle size={16} />
                                 Correct Answer
                               </div>
                             )}
                             {isUserAnswer && !isCorrectAnswer && (
-                              <div className="mt-2 flex items-center gap-1 text-sm text-red-700 font-semibold">
+                              <div className="mt-2 flex items-center gap-1 text-sm text-red-800 dark:text-red-300 font-bold">
                                 <XCircle size={16} />
                                 Your Answer
                               </div>
@@ -246,9 +267,9 @@ export default function SubmissionReview() {
                     </div>
                   ) : (
                     <div className="ml-14">
-                      <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600 mb-2 font-semibold">Your Answer:</p>
-                        <p className="text-gray-900 whitespace-pre-wrap">
+                      <div className="bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Your Answer</p>
+                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
                           {userAnswer || 'No answer provided'}
                         </p>
                       </div>
@@ -274,23 +295,43 @@ export default function SubmissionReview() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-6 flex gap-3"
+          className="mt-6 space-y-3"
         >
-          <Button
-            onClick={() => navigate(`/quiz/${quiz?.quiz_id}/detail`)}
-            variant="ghost"
-            className="flex-1"
-          >
-            Back to Quiz
-          </Button>
-          <Button
-            onClick={() => navigate(`/quiz/${quiz?.quiz_id}`)}
-            variant="primary"
-            icon={RotateCcw}
-            className="flex-1"
-          >
-            Retake Quiz
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => navigate(`/quiz/${quiz?.quiz_id}/detail`)}
+              variant="ghost"
+              className="flex-1"
+            >
+              Back to Quiz
+            </Button>
+            <Button
+              onClick={() => navigate(`/quiz/${quiz?.quiz_id}`)}
+              variant="primary"
+              icon={RotateCcw}
+              className="flex-1"
+            >
+              Retake Quiz
+            </Button>
+          </div>
+
+          {/* Export Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleExportPDF}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm"
+            >
+              <FileDown size={20} />
+              Export PDF
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition shadow-sm"
+            >
+              <FileSpreadsheet size={20} />
+              Export CSV
+            </button>
+          </div>
         </motion.div>
       </div>
     </Layout>

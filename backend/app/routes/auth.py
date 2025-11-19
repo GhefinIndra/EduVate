@@ -1,15 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from mysql.connector import Error as MySQLError
+from psycopg2 import Error as PostgreSQLError
 from datetime import timedelta
 import uuid
 import json
+import logging
 
 from app.models.user import RegisterRequest, LoginRequest, TokenResponse
-from app.database import get_db
+from app.database import get_db, get_dict_cursor
 from app.auth import get_password_hash, verify_password, create_access_token
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(request: RegisterRequest, db=Depends(get_db)):
@@ -21,7 +23,7 @@ def register(request: RegisterRequest, db=Depends(get_db)):
     - Insert ke database (users + gamification)
     - Return success message
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # 1. Check apakah email sudah ada
@@ -36,7 +38,9 @@ def register(request: RegisterRequest, db=Depends(get_db)):
         
         # 2. Generate user_id & hash password
         user_id = str(uuid.uuid4())
+        logger.info(f"Hashing password for new user {user_id}")
         hashed_password = get_password_hash(request.password)
+        logger.debug(f"Generated hash: {hashed_password[:20]}...")
         
         # 3. Insert ke tabel users
         insert_user_query = """
@@ -62,7 +66,7 @@ def register(request: RegisterRequest, db=Depends(get_db)):
             "name": request.name
         }
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -80,7 +84,7 @@ def login(request: LoginRequest, db=Depends(get_db)):
     - Generate JWT token
     - Return token + user info
     """
-    cursor = db.cursor(dictionary=True)
+    cursor = get_dict_cursor(db)
     
     try:
         # 1. Get user dari database
@@ -92,12 +96,20 @@ def login(request: LoginRequest, db=Depends(get_db)):
         
         # 2. Validasi user exists & password correct
         if not user:
+            logger.warning(f"Login failed: User not found for email {request.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
         
-        if not verify_password(request.password, user['hashed_password']):
+        logger.info(f"Attempting password verification for user {user['id']}")
+        logger.debug(f"Stored hash: {user['hashed_password'][:20]}...")
+        
+        password_valid = verify_password(request.password, user['hashed_password'])
+        logger.info(f"Password verification result: {password_valid}")
+        
+        if not password_valid:
+            logger.warning(f"Login failed: Invalid password for user {user['id']}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
@@ -119,7 +131,7 @@ def login(request: LoginRequest, db=Depends(get_db)):
             email=user['email']
         )
         
-    except MySQLError as e:
+    except PostgreSQLError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error: {str(e)}"

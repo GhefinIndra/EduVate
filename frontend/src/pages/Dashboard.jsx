@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { gamificationAPI } from '../api/gamification';
-import { topicsAPI } from '../api/topics';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { FileText, ClipboardList, TrendingUp, Award, Flame, Folder, Plus, Sparkles, Target } from 'lucide-react';
+import { StatCardSkeleton, TopicCardSkeleton } from '../components/Skeleton';
+import { FileText, ClipboardList, TrendingUp, Award, Flame, Folder, Plus, Sparkles, Target, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -19,23 +19,41 @@ export default function Dashboard() {
   const [topicUnderstanding, setTopicUnderstanding] = useState([]);
   const [topics, setTopics] = useState([]);
 
+  // Helper functions for understanding percentage styling
+  const getUnderstandingColor = (percentage) => {
+    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 60) return 'text-blue-600';
+    if (percentage >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getProgressGradient = (percentage) => {
+    if (percentage >= 80) return 'from-green-500 to-green-600';
+    if (percentage >= 60) return 'from-blue-500 to-blue-600';
+    if (percentage >= 40) return 'from-yellow-500 to-yellow-600';
+    return 'from-red-500 to-red-600';
+  };
+
+  const getProgressBackground = (percentage) => {
+    if (percentage >= 80) return 'from-green-50 to-green-100';
+    if (percentage >= 60) return 'from-blue-50 to-blue-100';
+    if (percentage >= 40) return 'from-yellow-50 to-yellow-100';
+    return 'from-red-50 to-red-100';
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
-      const [statsRes, progressRes, topicUnderstandingRes, topicsRes] = await Promise.all([
-        gamificationAPI.getStats(),
-        gamificationAPI.getProgress(),
-        gamificationAPI.getTopicUnderstanding(),
-        topicsAPI.list(),
-      ]);
-
-      setStats(statsRes.data);
-      setProgress(progressRes.data);
-      setTopicUnderstanding(topicUnderstandingRes.data.topics);
-      setTopics(topicsRes.data.topics);
+      const response = await gamificationAPI.getDashboard();
+      const data = response.data;
+      
+      setStats(data.stats);
+      setProgress(data.progress);
+      setTopicUnderstanding(data.topic_understanding.topics);
+      setTopics(data.topics);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -46,8 +64,34 @@ export default function Dashboard() {
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-gray-600 dark:text-gray-400">Loading dashboard...</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Hero Section Skeleton */}
+          <div className="bg-gradient-to-br from-primary-500 to-secondary-600 rounded-3xl p-8 mb-8 h-64">
+            <div className="animate-pulse">
+              <div className="h-6 w-32 bg-white/20 rounded mb-2"></div>
+              <div className="h-8 w-64 bg-white/20 rounded mb-2"></div>
+              <div className="h-6 w-96 bg-white/20 rounded mb-6"></div>
+              <div className="flex gap-3">
+                <div className="h-10 w-32 bg-white/20 rounded-xl"></div>
+                <div className="h-10 w-32 bg-white/20 rounded-xl"></div>
+                <div className="h-10 w-32 bg-white/20 rounded-xl"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </div>
+
+          {/* Content Cards Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+          </div>
         </div>
       </Layout>
     );
@@ -76,9 +120,17 @@ export default function Dashboard() {
                 variant="outline"
                 icon={Folder}
                 onClick={() => navigate('/topics')}
-                className="bg-white text-primary-600 border-white hover:bg-gray-50"
+                className="bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-white dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 My Topics
+              </Button>
+              <Button
+                variant="outline"
+                icon={BarChart3}
+                onClick={() => navigate('/analytics')}
+                className="bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-white dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Analytics
               </Button>
               <Button
                 variant="ghost"
@@ -223,15 +275,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`text-3xl font-bold ${
-                          topic.understanding_percentage >= 80
-                            ? 'text-green-600'
-                            : topic.understanding_percentage >= 60
-                            ? 'text-blue-600'
-                            : topic.understanding_percentage >= 40
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                        }`}>
+                        <div className={`text-3xl font-bold ${getUnderstandingColor(topic.understanding_percentage)}`}>
                           {topic.understanding_percentage.toFixed(0)}%
                         </div>
                         <p className="text-xs text-gray-500">understanding</p>
@@ -248,15 +292,7 @@ export default function Dashboard() {
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                         <motion.div
-                          className={`h-2 rounded-full ${
-                            topic.understanding_percentage >= 80
-                              ? 'bg-gradient-to-r from-green-400 to-green-600'
-                              : topic.understanding_percentage >= 60
-                              ? 'bg-gradient-to-r from-blue-400 to-blue-600'
-                              : topic.understanding_percentage >= 40
-                              ? 'bg-gradient-to-r from-yellow-400 to-yellow-600'
-                              : 'bg-gradient-to-r from-red-400 to-red-600'
-                          }`}
+                          className={`h-2 rounded-full bg-gradient-to-r ${getProgressGradient(topic.understanding_percentage)}`}
                           initial={{ width: 0 }}
                           animate={{ width: `${topic.understanding_percentage}%` }}
                           transition={{ duration: 0.8, delay: index * 0.1 }}

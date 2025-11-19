@@ -5,8 +5,10 @@ import { topicsAPI } from '../api/topics';
 import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { TopicCardSkeleton } from '../components/Skeleton';
 import {
-  FolderOpen, Plus, Edit2, Trash2, Loader, X,
+  FolderOpen, Plus, Edit2, Trash2, X,
   FileText, MessageSquare, ClipboardList, Sparkles, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +20,7 @@ export default function Topics() {
   const [showModal, setShowModal] = useState(false);
   const [editingTopic, setEditingTopic] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, topic: null });
 
   useEffect(() => {
     fetchTopics();
@@ -78,24 +81,48 @@ export default function Topics() {
   };
 
   const handleDelete = async (topic) => {
-    if (!window.confirm(`Delete "${topic.name}"? This will delete all documents, chats, and quizzes in this topic.`)) {
-      return;
-    }
+    setConfirmDialog({ isOpen: true, topic });
+  };
 
+  const confirmDelete = async () => {
+    const topicToDelete = confirmDialog.topic;
+    setConfirmDialog({ isOpen: false, topic: null });
+    
+    // Optimistic update - remove from UI immediately
+    const previousTopics = [...topics];
+    setTopics(topics.filter(t => t.id !== topicToDelete.id));
+    
+    const toastId = toast.loading('Deleting topic...');
+    
     try {
-      await topicsAPI.delete(topic.id);
-      toast.success('Topic deleted');
-      fetchTopics();
+      await topicsAPI.delete(topicToDelete.id);
+      toast.success('Topic deleted!', { id: toastId });
     } catch (error) {
-      toast.error('Failed to delete topic');
+      // Rollback on error
+      setTopics(previousTopics);
+      toast.error('Failed to delete topic', { id: toastId });
     }
   };
 
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader className="animate-spin text-primary-600" size={32} />
+        <div className="p-8 max-w-7xl mx-auto">
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
+            <div className="h-4 w-96 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          </div>
+
+          {/* Topics Grid Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+            <TopicCardSkeleton />
+          </div>
         </div>
       </Layout>
     );
@@ -333,6 +360,18 @@ export default function Topics() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, topic: null })}
+        onConfirm={confirmDelete}
+        title="Delete Topic"
+        message={confirmDialog.topic ? `Delete "${confirmDialog.topic.name}"? This will delete all documents, chats, and quizzes in this topic.` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </Layout>
   );
 }

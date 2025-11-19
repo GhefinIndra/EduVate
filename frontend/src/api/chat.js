@@ -21,9 +21,9 @@ export const chatAPI = {
     return client.get(`/chat/sessions${params}`);
   },
 
-  // Get all messages from a session
-  getMessages: (sessionId) =>
-    client.get(`/chat/sessions/${sessionId}/messages`),
+  // Get all messages from a session (with pagination support)
+  getMessages: (sessionId, limit = 50, offset = 0) =>
+    client.get(`/chat/sessions/${sessionId}/messages?limit=${limit}&offset=${offset}`),
 
   // Send message to a session
   sendMessage: (sessionId, content) =>

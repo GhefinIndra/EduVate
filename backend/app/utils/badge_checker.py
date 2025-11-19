@@ -55,7 +55,8 @@ def update_streak(user_id: str, db):
     - Yesterday: streak + 1
     - Skip days: reset to 1
     """
-    cursor = db.cursor(dictionary=True)
+    from app.database import get_dict_cursor
+    cursor = get_dict_cursor(db)
     
     try:
         # Get current streak & last_activity
@@ -107,7 +108,8 @@ def check_and_unlock_badges(user_id: str, db):
     
     Returns: List of newly unlocked badge IDs
     """
-    cursor = db.cursor(dictionary=True)
+    from app.database import get_dict_cursor
+    cursor = get_dict_cursor(db)
     newly_unlocked = []
     
     try:
@@ -202,7 +204,8 @@ def get_all_badges(user_id: str, db):
     
     Returns: List of badge objects dengan info lengkap
     """
-    cursor = db.cursor(dictionary=True)
+    from app.database import get_dict_cursor
+    cursor = get_dict_cursor(db)
     
     try:
         cursor.execute(

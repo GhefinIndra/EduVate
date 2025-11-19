@@ -6,10 +6,10 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 generation_config = genai.GenerationConfig(
-    temperature=0.7,
+    temperature=0.8,
     top_p=0.9,
     top_k=40,
-    max_output_tokens=150,  # Short insights
+    max_output_tokens=300,  # Longer insights
 )
 
 def generate_topic_insight(
@@ -34,24 +34,30 @@ def generate_topic_insight(
     """
 
     # Build prompt
-    prompt = f"""You are an educational AI assistant analyzing a student's learning progress.
+    prompt = f"""You are Eduvate, a friendly and insightful AI learning companion for Indonesian students.
 
-Topic: {topic_name}
-Average Understanding: {understanding_percentage:.1f}%
-Quizzes Taken: {total_quizzes}
-Total Attempts: {total_attempts}
-Latest Score: {latest_score:.1f}%
+STUDENT'S PERFORMANCE DATA:
+- Topic: {topic_name}
+- Average Understanding: {understanding_percentage:.1f}%
+- Quizzes Completed: {total_quizzes}
+- Total Attempts (including retakes): {total_attempts}
+- Latest Quiz Score: {latest_score:.1f}%
 
-Generate a SHORT, ENCOURAGING insight (1-2 sentences max, ~20-30 words) about the student's understanding of this topic.
+TASK: Generate a personalized, actionable insight (2-4 sentences, 40-60 words) in Bahasa Indonesia.
 
-Guidelines:
-- If score >= 80%: Praise mastery, suggest advanced topics
-- If score 60-79%: Acknowledge good progress, suggest more practice
-- If score 40-59%: Encourage improvement, suggest focused review
-- If score < 40%: Be supportive, suggest fundamental review
-- Mention trends (improving/declining) if total_attempts > 1
-- Keep it motivational and actionable
-- Use Indonesian language (bahasa Indonesia)
+INSIGHT STRUCTURE:
+1. **Assessment**: Comment on their current mastery level
+2. **Context**: Analyze trend (improving/stable/declining) if total_attempts > total_quizzes
+3. **Action**: Give specific, actionable advice (what to focus on, how to improve)
+4. **Motivation**: End with encouragement
+
+GUIDELINES:
+- Score ≥ 85%: "Excellent mastery! 🌟" → Suggest moving to advanced topics, real-world application, or teaching others
+- Score 70-84%: "Strong understanding! 💪" → Suggest practicing edge cases, reviewing weak spots
+- Score 50-69%: "Good foundation 📚" → Suggest targeted review of difficult concepts, more practice quizzes
+- Score < 50%: "Let's build stronger foundations 🔨" → Suggest breaking down fundamentals, step-by-step learning
+
+TONE: Supportive, encouraging, specific (not generic), conversational Indonesian
 
 Insight:"""
 
@@ -72,13 +78,13 @@ Insight:"""
 
         return insight
 
-    except Exception as e:
+    except Exception:
         # Fallback insight if API fails
-        if understanding_percentage >= 80:
-            return f"Pemahaman sangat baik pada {topic_name}! Terus pertahankan."
-        elif understanding_percentage >= 60:
-            return f"Pemahaman baik pada {topic_name}. Latihan lebih akan meningkatkan skor."
-        elif understanding_percentage >= 40:
-            return f"Perlu lebih banyak latihan pada {topic_name}. Jangan menyerah!"
+        if understanding_percentage >= 85:
+            return f"Pemahaman luar biasa pada {topic_name}! 🌟 Kamu siap untuk topik lebih advanced atau bisa coba ajarkan ke teman."
+        elif understanding_percentage >= 70:
+            return f"Pemahaman kuat pada {topic_name}! 💪 Coba latihan soal yang lebih challenging untuk sempurnakan skill kamu."
+        elif understanding_percentage >= 50:
+            return f"Dasar {topic_name} sudah mulai kuat! 📚 Review konsep yang masih kurang jelas dan perbanyak latihan."
         else:
-            return f"Mari fokus mempelajari dasar-dasar {topic_name} lebih dalam."
+            return f"Yuk kita perkuat fondasi {topic_name}! 🔨 Mulai dari konsep dasar step by step, pasti bisa kok!"
