@@ -1,4 +1,3 @@
-````markdown
 # Eduvate Backend - AI Learning Companion
 
 Backend API untuk Eduvate (SEVENT 9.0 Software Development Competition)
@@ -268,6 +267,9 @@ Untuk aplikasi demo/lomba, kemungkinan besar 100% GRATIS.
 
 ## Development
 
-Tim: [Nama Tim Anda]
-Event: SEVENT 9.0 - Software Engineering Event
+**Team MatchaYuzuu**
+- Ghefin Indra
+- Najwa Aulia Aziza
+
+Event: SEVENT 9.0 - Software Engineering Event  
 Tema: AI for New Opportunities

@@ -530,11 +530,16 @@ firebase deploy --only hosting
 
 ## 📝 License
 
-Proprietary - SEVENT 9.0 Competition Project
+MIT License - Free to use and modify for educational purposes.
 
 ---
 
 ## 👥 Team
+
+**Team MatchaYuzuu**
+
+- **Ghefin Indra** - Full Stack Developer
+- **Najwa Aulia Aziza** - Full Stack Developer
 
 Project developed for SEVENT 9.0 Software Engineering Event  
 Theme: **AI for New Opportunities**
