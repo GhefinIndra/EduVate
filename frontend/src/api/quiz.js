@@ -2,11 +2,12 @@ import client from './client';
 
 export const quizAPI = {
   // Generate quiz from a topic (multi-doc)
-  generateFromSubject: (subjectId, n_mcq = 5, n_essay = 2) =>
+  generateFromSubject: (subjectId, n_mcq = 5, n_essay = 2, timer_minutes = null) =>
     client.post('/quiz/generate', {
       subject_id: subjectId,
       n_mcq,
       n_essay,
+      timer_minutes,
     }),
 
   // Generate quiz from a single document (legacy)

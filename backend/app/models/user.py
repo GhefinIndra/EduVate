@@ -52,3 +52,31 @@ class UserResponse(BaseModel):
     email: str
     name: str
     created_at: datetime
+
+class UpdateProfileRequest(BaseModel):
+    """
+    Request body untuk update profile
+    """
+    name: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "John Doe Updated"
+            }
+        }
+
+class ChangePasswordRequest(BaseModel):
+    """
+    Request body untuk change password
+    """
+    current_password: str
+    new_password: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "current_password": "oldpassword123",
+                "new_password": "newpassword123"
+            }
+        }

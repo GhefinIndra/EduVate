@@ -5,9 +5,9 @@ import uuid
 import json
 import logging
 
-from app.models.user import RegisterRequest, LoginRequest, TokenResponse
+from app.models.user import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateProfileRequest, ChangePasswordRequest
 from app.database import get_db, get_dict_cursor
-from app.auth import get_password_hash, verify_password, create_access_token
+from app.auth import get_password_hash, verify_password, create_access_token, get_current_user
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -132,6 +132,129 @@ def login(request: LoginRequest, db=Depends(get_db)):
         )
         
     except PostgreSQLError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+    finally:
+        cursor.close()
+
+@router.get("/me", response_model=UserResponse)
+def get_current_user_profile(user_id: str = Depends(get_current_user), db=Depends(get_db)):
+    """
+    Get current user profile
+    """
+    cursor = get_dict_cursor(db)
+
+    try:
+        cursor.execute(
+            "SELECT id, email, name, created_at FROM users WHERE id = %s",
+            (user_id,)
+        )
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return UserResponse(**user)
+
+    except PostgreSQLError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+    finally:
+        cursor.close()
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(
+    request: UpdateProfileRequest,
+    user_id: str = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    Update user profile (name only)
+    """
+    cursor = get_dict_cursor(db)
+
+    try:
+        # Update name
+        cursor.execute(
+            "UPDATE users SET name = %s WHERE id = %s RETURNING id, email, name, created_at",
+            (request.name, user_id)
+        )
+
+        updated_user = cursor.fetchone()
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        db.commit()
+
+        return UserResponse(**updated_user)
+
+    except PostgreSQLError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+    finally:
+        cursor.close()
+
+@router.put("/password")
+def change_password(
+    request: ChangePasswordRequest,
+    user_id: str = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    Change user password
+    """
+    cursor = get_dict_cursor(db)
+
+    try:
+        # Get current hashed password
+        cursor.execute(
+            "SELECT hashed_password FROM users WHERE id = %s",
+            (user_id,)
+        )
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        # Verify current password
+        if not verify_password(request.current_password, user['hashed_password']):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+
+        # Hash new password
+        new_hashed_password = get_password_hash(request.new_password)
+
+        # Update password
+        cursor.execute(
+            "UPDATE users SET hashed_password = %s WHERE id = %s",
+            (new_hashed_password, user_id)
+        )
+
+        db.commit()
+
+        return {"message": "Password changed successfully"}
+
+    except PostgreSQLError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error: {str(e)}"

@@ -4,7 +4,7 @@ import Button from './Button';
 import confetti from 'canvas-confetti';
 import { useEffect } from 'react';
 
-export default function QuizSubmitModal({ isOpen, onClose, onConfirm, questionCount }) {
+export default function QuizSubmitModal({ isOpen, onClose, onConfirm, questionCount, unansweredCount = 0 }) {
   useEffect(() => {
     if (isOpen) {
       // Trigger confetti animation
@@ -97,7 +97,12 @@ export default function QuizSubmitModal({ isOpen, onClose, onConfirm, questionCo
               </motion.div>
 
               <h2 className="text-2xl font-bold text-white mb-2">Ready to Submit?</h2>
-              <p className="text-white/90 text-sm">You've completed all {questionCount} questions!</p>
+              <p className="text-white/90 text-sm">
+                {unansweredCount > 0
+                  ? `${unansweredCount} question(s) unanswered. Continue anyway?`
+                  : `You've completed all ${questionCount} questions!`
+                }
+              </p>
             </div>
 
             {/* Body */}
@@ -112,7 +117,7 @@ export default function QuizSubmitModal({ isOpen, onClose, onConfirm, questionCo
                   </div>
                   <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-xl">
                     <CheckCircle2 className="text-green-600 dark:text-green-400 mx-auto mb-1" size={20} />
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{questionCount}</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{questionCount - unansweredCount}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Answered</p>
                   </div>
                   <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-xl">
@@ -123,11 +128,19 @@ export default function QuizSubmitModal({ isOpen, onClose, onConfirm, questionCo
                 </div>
 
                 {/* Warning message */}
-                <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                    ⚠️ You won't be able to change your answers after submission
-                  </p>
-                </div>
+                {unansweredCount > 0 ? (
+                  <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-4">
+                    <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                      ⚠️ {unansweredCount} question(s) are unanswered. These will be marked as incorrect.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                    <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                      ⚠️ You won't be able to change your answers after submission
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action buttons */}

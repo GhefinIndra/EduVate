@@ -6,7 +6,7 @@ import { topicsAPI } from '../api/topics';
 import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { ArrowLeft, Loader, Sparkles, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader, Sparkles, FileText, AlertCircle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function QuizGenerate() {
@@ -18,6 +18,8 @@ export default function QuizGenerate() {
   const [loadingData, setLoadingData] = useState(true);
   const [nMcq, setNMcq] = useState(5);
   const [nEssay, setNEssay] = useState(2);
+  const [enableTimer, setEnableTimer] = useState(false);
+  const [timerMinutes, setTimerMinutes] = useState(30);
 
   useEffect(() => {
     fetchTopic();
@@ -51,7 +53,12 @@ export default function QuizGenerate() {
     setLoading(true);
 
     try {
-      const response = await quizAPI.generateFromSubject(topicId, nMcq, nEssay);
+      const response = await quizAPI.generateFromSubject(
+        topicId,
+        nMcq,
+        nEssay,
+        enableTimer ? timerMinutes : null
+      );
       const quizId = response.data.quiz_id;
 
       toast.success('Quiz generated successfully!');
@@ -170,11 +177,58 @@ export default function QuizGenerate() {
               </p>
             </motion.div>
 
-            {/* Summary */}
+            {/* Timer Option */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
+            >
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                Quiz Timer (Optional)
+              </label>
+
+              {/* Enable Timer Toggle */}
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="enable-timer"
+                  checked={enableTimer}
+                  onChange={(e) => setEnableTimer(e.target.checked)}
+                  className="w-5 h-5 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <label htmlFor="enable-timer" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Enable time limit for this quiz
+                </label>
+              </div>
+
+              {/* Timer Input */}
+              {enableTimer && (
+                <div className="ml-8 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Clock size={20} className="text-primary-600" />
+                    <input
+                      type="number"
+                      min="1"
+                      max="180"
+                      value={timerMinutes}
+                      onChange={(e) => setTimerMinutes(Math.max(1, Math.min(180, Number.parseInt(e.target.value) || 1)))}
+                      className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">minutes</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    Quiz will auto-submit when time expires. Warning at 1 minute remaining.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Summary */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
               className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl border border-gray-200 dark:border-gray-600"
             >
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quiz Summary:</p>
@@ -184,6 +238,15 @@ export default function QuizGenerate() {
                 <span>{nMcq} MCQ</span>
                 <span>•</span>
                 <span>{nEssay} Essay</span>
+                {enableTimer && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={14} />
+                      {timerMinutes} min timer
+                    </span>
+                  </>
+                )}
               </div>
             </motion.div>
 

@@ -9,13 +9,15 @@ class GenerateQuizRequest(BaseModel):
     subject_id: str
     n_mcq: int = 5
     n_essay: int = 2
+    timer_minutes: Optional[int] = None  # Optional timer in minutes
 
     class Config:
         json_schema_extra = {
             "example": {
                 "subject_id": "bc5c542c-1fae-4251-890d-13c5c4f99c85",
                 "n_mcq": 5,
-                "n_essay": 2
+                "n_essay": 2,
+                "timer_minutes": 30
             }
         }
 
@@ -45,6 +47,7 @@ class QuizResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     user_answers: Optional[dict] = None  # {"question_id": "answer"}
     score: Optional[float] = None
+    timer_minutes: Optional[int] = None  # Quiz timer in minutes (NULL = no timer)
 
 class SubmitAnswerRequest(BaseModel):
     """
@@ -85,6 +88,10 @@ class SubmissionResponse(BaseModel):
     percentage: float
     details: List[QuestionFeedback]
     submitted_at: datetime
+    xp_earned: int = 0
+    is_improvement: bool = False
+    best_score: float = 0.0
+    attempt_number: int = 1
 
 class QuizHistoryItem(BaseModel):
     """

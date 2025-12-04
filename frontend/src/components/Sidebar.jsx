@@ -10,14 +10,19 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Trophy,
+  UserCircle,
+  HelpCircle,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import HelpModal from './HelpModal';
 import { useAuth } from '../contexts/AuthContext';
 import { topicsAPI } from '../api/topics';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
 ];
 
 export default function Sidebar() {
@@ -28,6 +33,7 @@ export default function Sidebar() {
   const [topicsOpen, setTopicsOpen] = useState(false);
   const [topics, setTopics] = useState([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     if (topicsOpen && topics.length === 0) {
@@ -76,22 +82,33 @@ export default function Sidebar() {
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-gray-400">
-                Eduvate
-              </p>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Workspace
-              </h1>
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gray-400">
+                  Eduvate
+                </p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Workspace
+                </h1>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="lg:hidden text-gray-500 hover:text-gray-900"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <ThemeToggle />
-            <button
-              onClick={() => setIsOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-900"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setHelpOpen(true)}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+                title="Help & FAQ"
+              >
+                <HelpCircle className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -177,20 +194,30 @@ export default function Sidebar() {
             </div>
           </nav>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 text-white flex items-center justify-center font-bold">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <NavLink
+              to="/profile"
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                  isActive
+                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 font-semibold'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`
+              }
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 text-white flex items-center justify-center font-bold text-sm">
                 {user?.name?.charAt(0)?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <p className="text-sm font-semibold truncate">
                   {user?.name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user?.email}
+                <p className="text-xs opacity-60 truncate">
+                  View Profile
                 </p>
               </div>
-            </div>
+            </NavLink>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition"
@@ -203,6 +230,9 @@ export default function Sidebar() {
       </aside>
 
       <div className="lg:ml-64" />
+
+      {/* Help Modal */}
+      <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
 }

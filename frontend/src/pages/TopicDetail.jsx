@@ -11,7 +11,7 @@ import PDFViewer from '../components/PDFViewer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { DocumentCardSkeleton } from '../components/Skeleton';
 import {
-  ArrowLeft, Upload, FileText, MessageSquare, ClipboardList, Trash2, Sparkles, Brain, Eye
+  ArrowLeft, Upload, FileText, MessageSquare, ClipboardList, Trash2, Sparkles, Brain, Eye, Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { handleApiError, handleUploadError } from '../utils/errorHandler';
@@ -322,7 +322,7 @@ export default function TopicDetail() {
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 mt-0.5">
                         {progress.status === 'uploading' && (
-                          <Loader className="animate-spin text-blue-600" size={18} />
+                          <Loader2 className="animate-spin text-blue-600" size={18} />
                         )}
                         {progress.status === 'success' && (
                           <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">

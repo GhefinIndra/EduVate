@@ -5,6 +5,7 @@ import json
 from typing import List
 
 from app.utils.cache import invalidate_user_cache
+from app.utils.xp_calculator import calculate_quiz_xp_delta
 
 from app.models.quiz import (
     GenerateQuizRequest, QuizResponse, QuestionResponse,
@@ -70,10 +71,10 @@ def generate_quiz(
 
         cursor.execute(
             """
-            INSERT INTO quizzes (id, user_id, subject_id, title, total_questions)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO quizzes (id, user_id, subject_id, title, total_questions, timer_minutes)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (quiz_id, user_id, request.subject_id, quiz_title, len(questions))
+            (quiz_id, user_id, request.subject_id, quiz_title, len(questions), request.timer_minutes)
         )
         
         # 4. Save questions
@@ -116,7 +117,7 @@ def generate_quiz(
         
         # 5. Get created quiz
         cursor.execute(
-            "SELECT id, title, subject_id, total_questions, created_at FROM quizzes WHERE id = %s",
+            "SELECT id, title, subject_id, total_questions, timer_minutes, created_at FROM quizzes WHERE id = %s",
             (quiz_id,)
         )
         quiz = cursor.fetchone()
@@ -127,7 +128,8 @@ def generate_quiz(
             subject_id=quiz['subject_id'],
             total_questions=quiz['total_questions'],
             questions=question_responses,
-            created_at=quiz['created_at']
+            created_at=quiz['created_at'],
+            timer_minutes=quiz['timer_minutes']
         )
         
     except PostgreSQLError as e:
@@ -248,7 +250,7 @@ def get_quiz(
         # Get quiz
         cursor.execute(
             """
-            SELECT id, title, doc_id, subject_id, total_questions, created_at
+            SELECT id, title, doc_id, subject_id, total_questions, timer_minutes, created_at
             FROM quizzes
             WHERE id = %s AND user_id = %s
             """,
@@ -305,7 +307,8 @@ def get_quiz(
             created_at=quiz['created_at'],
             submitted_at=None,
             user_answers=None,
-            score=None
+            score=None,
+            timer_minutes=quiz['timer_minutes']
         )
         
     finally:
@@ -386,7 +389,7 @@ def get_submission_detail(
         cursor.execute(
             """
             SELECT s.id, s.quiz_id, s.total_score, s.max_score, s.submitted_at,
-                   q.title, q.subject_id, q.total_questions, q.created_at
+                   q.title, q.subject_id, q.total_questions, q.timer_minutes, q.created_at
             FROM submissions s
             JOIN quizzes q ON s.quiz_id = q.id
             WHERE s.id = %s AND s.user_id = %s
@@ -453,7 +456,8 @@ def get_submission_detail(
             created_at=submission['created_at'],
             submitted_at=submission['submitted_at'],
             user_answers=user_answers_dict,
-            score=score
+            score=score,
+            timer_minutes=submission['timer_minutes']
         )
 
     finally:
@@ -561,30 +565,31 @@ def submit_quiz(
                 feedback=detail['feedback']
             ))
         
-        # 6. Update XP (simple: +20 for completing quiz, +5 per correct MCQ)
-        xp_earned = 20  # Base XP for completing
-        for detail in grading_result['details']:
-            if detail['type'] == 'MCQ' and detail.get('is_correct'):
-                xp_earned += 5
-            elif detail['type'] == 'ESSAY' and detail['score'] >= (question['points'] * 0.8):
-                xp_earned += 10
-        
-        # Calculate XP & new level (Exponential - Opsi B)
-        # Get current XP
-        cursor.execute("SELECT xp FROM gamification WHERE user_id = %s", (user_id,))
-        current_xp = cursor.fetchone()['xp'] or 0
-        new_xp = current_xp + xp_earned
-        new_level = calculate_level_from_xp(new_xp)
+        # 6. Update XP using new replace-based system
+        # Calculate score percentage
+        total_score = grading_result['total_score']
+        max_score = grading_result['max_score']
+        score_percentage = (total_score / max_score) * 100 if max_score > 0 else 0
 
-        # Update gamification
+        # Get XP delta using new replace-based system
+        xp_result = calculate_quiz_xp_delta(
+            user_id=user_id,
+            quiz_id=quiz_id,
+            new_score=score_percentage,
+            db_connection=db
+        )
+
+        new_total_xp = xp_result['new_total_xp']
+        new_level = calculate_level_from_xp(new_total_xp)
+
+        # Update level if changed
         cursor.execute(
             """
             UPDATE gamification
-            SET xp = %s,
-                level = %s
+            SET level = %s
             WHERE user_id = %s
             """,
-            (new_xp, new_level, user_id)
+            (new_level, user_id)
         )
 
         db.commit()
@@ -612,7 +617,11 @@ def submit_quiz(
             max_score=submission['max_score'],
             percentage=percentage,
             details=feedback_list,
-            submitted_at=submission['submitted_at']
+            submitted_at=submission['submitted_at'],
+            xp_earned=xp_result['xp_earned'],
+            is_improvement=xp_result['is_improvement'],
+            best_score=xp_result['best_score'],
+            attempt_number=xp_result['attempt_number']
         )
         
     except PostgreSQLError as e:

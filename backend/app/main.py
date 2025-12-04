@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routes import auth, documents, chat, quiz, gamification, topics
+from app.routes import auth, documents, chat, quiz, gamification, topics, leaderboard
 from app.config import settings
 from app.utils.gcs_storage import sync_chromadb_from_gcs
+from datetime import datetime
 import logging
 import os
 
@@ -80,6 +81,7 @@ app.include_router(documents.router)
 app.include_router(chat.router)
 app.include_router(quiz.router)
 app.include_router(gamification.router)
+app.include_router(leaderboard.router)
 
 # Root endpoint
 @app.get("/")
@@ -94,12 +96,15 @@ def root():
     }
 
 @app.get("/health")
+@app.head("/health")
 def health_check():
     """
-    Health check for monitoring
+    Lightweight health check for uptime monitoring
+    Returns basic status without hitting database
+    Supports both GET and HEAD methods for Uptime Robot
     """
     return {
         "status": "ok",
-        "database": "connected",  # TODO: actual DB health check
-        "vector_db": "connected"   # TODO: actual ChromaDB health check
+        "timestamp": datetime.now().isoformat(),
+        "service": "eduvate-backend"
     }

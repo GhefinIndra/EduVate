@@ -31,7 +31,7 @@ CARA MENJAWAB:
 1. **Kalau user menyapa** (HANYA jika pesan user benar-benar "hai", "halo", "selamat pagi", dll):
    - Balas sapaan dengan hangat dan singkat
    - Tawarkan bantuan terkait materi
-   
+
 2. **Kalau user bertanya/diskusi materi**:
    - LANGSUNG jawab pertanyaan, JANGAN sapa dengan nama
    - JANGAN mulai dengan "Hai [nama]!" atau "Wah, pertanyaan bagus!"
@@ -164,15 +164,15 @@ def generate_answer_from_context(
             result = qa_chain.invoke({"query": query})
             answer_text = result.get("result", "")
             source_docs = result.get("source_documents", [])
-        
+
         # Extract citations from source documents
         citations = []
         seen_pages = set()
-        
+
         for doc in source_docs:
             page = doc.metadata.get('page', 0)
             doc_id_meta = doc.metadata.get('doc_id', '')
-            
+
             # Avoid duplicate pages
             if page not in seen_pages:
                 citations.append({
@@ -181,15 +181,15 @@ def generate_answer_from_context(
                     "doc_id": doc_id_meta
                 })
                 seen_pages.add(page)
-        
+
         # Sort citations by page
         citations.sort(key=lambda x: x['page'])
-        
+
         return {
             "answer": answer_text,
             "citations": citations
         }
-        
+
     except Exception as e:
         raise Exception(f"LangChain RAG error: {str(e)}")
 
@@ -200,22 +200,22 @@ def generate_answer_with_chat_history(
 ) -> Dict:
     """
     Generate answer dengan conversational memory (alternative approach)
-    
+
     Args:
         query: Pertanyaan user
         doc_id: Document ID
         chat_history: List of (human_msg, ai_msg) tuples
-    
+
     Returns:
         {
             "answer": "jawaban AI...",
             "citations": [...]
         }
     """
-    
+
     try:
         vectorstore = get_vectorstore()
-        
+
         retriever = vectorstore.as_retriever(
             search_type="similarity",
             search_kwargs={
@@ -223,7 +223,7 @@ def generate_answer_with_chat_history(
                 "filter": {"doc_id": doc_id}
             }
         )
-        
+
         # Conversational chain dengan memory
         qa_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
@@ -231,17 +231,17 @@ def generate_answer_with_chat_history(
             return_source_documents=True,
             verbose=False
         )
-        
+
         # Invoke dengan chat history
         result = qa_chain.invoke({
             "question": query,
             "chat_history": chat_history
         })
-        
+
         # Extract citations
         citations = []
         seen_pages = set()
-        
+
         for doc in result["source_documents"]:
             page = doc.metadata.get('page', 0)
             if page not in seen_pages:
@@ -251,29 +251,29 @@ def generate_answer_with_chat_history(
                     "doc_id": doc.metadata.get('doc_id', '')
                 })
                 seen_pages.add(page)
-        
+
         citations.sort(key=lambda x: x['page'])
-        
+
         return {
             "answer": result["answer"],
             "citations": citations
         }
-        
+
     except Exception as e:
         raise Exception(f"Conversational RAG error: {str(e)}")
 
 def generate_session_title(first_message: str) -> str:
     """
     Generate judul session dari pesan pertama
-    
+
     Args:
         first_message: Pesan pertama user
-    
+
     Returns:
         Session title (max 50 chars)
     """
     from langchain.chains import LLMChain
-    
+
     title_prompt = PromptTemplate(
         template="""
 Buat judul percakapan yang ringkas dan menarik (maksimal 5 kata) untuk pertanyaan berikut.
@@ -287,11 +287,11 @@ Judul:
 """.strip(),
         input_variables=["message"]
     )
-    
+
     try:
         chain = LLMChain(llm=llm, prompt=title_prompt)
         result = chain.invoke({"message": first_message})
-        
+
         title = result["text"].strip()
 
         # Remove unwanted prefixes seperti "Judul:" atau "Title:"
@@ -306,13 +306,13 @@ Judul:
 
         # Capitalize first letter if needed
         title = title[0].upper() + title[1:]
-        
+
         # Limit to 50 chars
         if len(title) > 50:
             title = title[:47] + "..."
-        
+
         return title
-        
+
     except:
         # Fallback
         return first_message[:47] + "..." if len(first_message) > 50 else first_message

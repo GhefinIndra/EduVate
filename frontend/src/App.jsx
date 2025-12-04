@@ -18,6 +18,9 @@ import QuizResult from './pages/QuizResult';
 import QuizList from './pages/QuizList';
 import QuizDetail from './pages/QuizDetail';
 import SubmissionReview from './pages/SubmissionReview';
+import Leaderboard from './pages/Leaderboard';
+import Profile from './pages/Profile';
+import NotFound from './pages/NotFound';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -63,6 +66,24 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Analytics />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute>
+            <Leaderboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />
@@ -131,7 +152,7 @@ function AppRoutes() {
       />
 
       <Route
-        path="/quiz/:quizId/result"
+        path="/quiz/submission/:submissionId"
         element={
           <ProtectedRoute>
             <QuizResult />
@@ -150,6 +171,9 @@ function AppRoutes() {
 
         {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* 404 - Catch all */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
   );

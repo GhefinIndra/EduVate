@@ -391,24 +391,33 @@ def get_topic_understanding(user_id: str = Depends(get_current_user), db = Depen
 
     try:
         # Query to get topic understanding stats
+        # Use best score per quiz (not average of all attempts)
         query = """
             SELECT
                 t.id as topic_id,
                 t.name as topic_name,
                 COUNT(DISTINCT q.id) as total_quizzes,
                 COUNT(DISTINCT s.id) as total_attempts,
-                AVG((s.total_score / s.max_score) * 100) as avg_score,
+                AVG(best_scores.best_percentage) as avg_score,
                 MAX(s.submitted_at) as latest_submission
             FROM topics t
             JOIN quizzes q ON t.id = q.subject_id
             JOIN submissions s ON q.id = s.quiz_id
+            JOIN (
+                SELECT
+                    quiz_id,
+                    MAX((total_score::float / max_score) * 100) as best_percentage
+                FROM submissions
+                WHERE user_id = %s AND max_score > 0
+                GROUP BY quiz_id
+            ) best_scores ON best_scores.quiz_id = q.id
             WHERE t.user_id = %s AND s.user_id = %s AND s.max_score > 0
             GROUP BY t.id, t.name
             HAVING COUNT(DISTINCT q.id) > 0
             ORDER BY latest_submission DESC
         """
 
-        cursor.execute(query, (user_id, user_id))
+        cursor.execute(query, (user_id, user_id, user_id))
         rows = cursor.fetchall()
 
         topics = []
@@ -1019,5 +1028,95 @@ def get_dashboard(user_id: str = Depends(get_current_user), db = Depends(get_db)
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to load dashboard: {str(e)}"
         )
+
+# ===================================
+# POST /me/daily-checkin
+# ===================================
+@router.post("/daily-checkin")
+def daily_checkin(user_id: str = Depends(get_current_user), db = Depends(get_db)):
+    """
+    Daily login check-in
+
+    Awards:
+    - +10 XP for daily login (once per day)
+    - Updates streak
+    - Updates last_activity
+
+    Returns:
+        {
+            "xp_earned": 10,
+            "new_total_xp": 1234,
+            "streak": 5,
+            "message": "Welcome back! 🔥",
+            "already_checked_in": false
+        }
+    """
+    cursor = get_dict_cursor(db)
+
+    try:
+        # Get current gamification data
+        cursor.execute("""
+            SELECT xp, streak, last_activity
+            FROM gamification
+            WHERE user_id = %s
+        """, (user_id,))
+
+        data = cursor.fetchone()
+        if not data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        current_xp = data['xp']
+        last_activity = data['last_activity']
+
+        # Check if already checked in today
+        today = datetime.now().date()
+
+        if last_activity and last_activity == today:
+            # Already checked in today
+            return {
+                "xp_earned": 0,
+                "new_total_xp": current_xp,
+                "streak": data['streak'],
+                "message": "You've already checked in today! Come back tomorrow 📅",
+                "already_checked_in": True
+            }
+
+        # Award daily XP
+        DAILY_XP = 10
+        new_xp = current_xp + DAILY_XP
+
+        # Update streak (handled by existing update_streak function)
+        update_streak(user_id, db)
+
+        # Update XP and last_activity
+        cursor.execute("""
+            UPDATE gamification
+            SET xp = %s,
+                last_activity = %s
+            WHERE user_id = %s
+            RETURNING streak
+        """, (new_xp, today, user_id))
+
+        result = cursor.fetchone()
+        new_streak = result['streak'] if result else 0
+
+        db.commit()
+
+        # Invalidate cache
+        invalidate_user_cache(user_id)
+
+        return {
+            "xp_earned": DAILY_XP,
+            "new_total_xp": new_xp,
+            "streak": new_streak,
+            "message": f"Daily check-in complete! 🔥 {new_streak} day streak!",
+            "already_checked_in": False
+        }
+
+    except PostgreSQLError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
 
 

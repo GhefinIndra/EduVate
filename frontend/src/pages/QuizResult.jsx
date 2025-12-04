@@ -6,7 +6,7 @@ import { ArrowLeft, Loader, Trophy, CheckCircle, XCircle, RotateCcw, FileDown, F
 import { exportQuizToPDF, exportQuizToCSV } from '../utils/exportUtils';
 
 export default function QuizResult() {
-  const { quizId } = useParams();
+  const { submissionId } = useParams();
   const navigate = useNavigate();
 
   const [quiz, setQuiz] = useState(null);
@@ -14,18 +14,11 @@ export default function QuizResult() {
 
   useEffect(() => {
     fetchQuiz();
-  }, [quizId]);
+  }, [submissionId]);
 
   const fetchQuiz = async () => {
     try {
-      const response = await quizAPI.getById(quizId);
-
-      if (!response.data.submitted_at) {
-        toast.error('Quiz not submitted yet');
-        navigate(`/quiz/${quizId}`);
-        return;
-      }
-
+      const response = await quizAPI.getSubmissionDetail(submissionId);
       setQuiz(response.data);
     } catch (error) {
       toast.error('Failed to load quiz result');

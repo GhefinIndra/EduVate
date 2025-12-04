@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { quizAPI } from '../api/quiz';
@@ -6,7 +6,7 @@ import Layout from '../components/Layout';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import QuizSubmitModal from '../components/QuizSubmitModal';
-import { ArrowLeft, Loader, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader, Send, CheckCircle2, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function QuizTake() {
@@ -19,9 +19,57 @@ export default function QuizTake() {
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
+  // Timer states
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [showWarning, setShowWarning] = useState(false);
+  const timerIntervalRef = useRef(null);
+  const hasShownOneMinuteWarning = useRef(false);
+
   useEffect(() => {
     fetchQuiz();
+
+    return () => {
+      // Cleanup timer on unmount
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
   }, [quizId]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (timeRemaining === null || timeRemaining < 0) return;
+
+    // Show warning at 1 minute remaining (only once)
+    if (timeRemaining === 60 && !hasShownOneMinuteWarning.current) {
+      setShowWarning(true);
+      hasShownOneMinuteWarning.current = true;
+      toast('⏰ 1 minute remaining!', {
+        icon: '⚠️',
+        duration: 5000,
+      });
+    }
+
+    // Auto-submit when time expires
+    if (timeRemaining === 0) {
+      toast.error('Time expired! Auto-submitting quiz...');
+      handleAutoSubmit();
+      return;
+    }
+
+    // Start countdown
+    timerIntervalRef.current = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerIntervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerIntervalRef.current);
+  }, [timeRemaining]);
 
   const fetchQuiz = async () => {
     try {
@@ -34,6 +82,11 @@ export default function QuizTake() {
         ...response.data,
         questions: shuffledQuestions
       });
+
+      // Initialize timer if quiz has timer_minutes
+      if (response.data.timer_minutes) {
+        setTimeRemaining(response.data.timer_minutes * 60); // Convert to seconds
+      }
 
       // Initialize answers
       const initialAnswers = {};
@@ -66,41 +119,59 @@ export default function QuizTake() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate all questions answered
-    const unanswered = Object.entries(answers).filter(
-      ([_, answer]) => answer === null || answer === ''
-    );
-
-    if (unanswered.length > 0) {
-      toast.error('Please answer all questions before submitting');
-      return;
-    }
-
-    // Show custom modal instead of window.confirm
+    // Show custom modal (handles unanswered questions inside)
     setShowSubmitModal(true);
+  };
+
+  const handleAutoSubmit = async () => {
+    // Auto-submit without confirmation when timer expires
+    await performSubmit();
   };
 
   const confirmSubmit = async () => {
     setShowSubmitModal(false);
+    await performSubmit();
+  };
+
+  const performSubmit = async () => {
     setSubmitting(true);
+
+    // Clear timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
 
     try {
       // Convert answers object to array format expected by backend
       const answersArray = Object.entries(answers).map(([question_id, answer]) => ({
         question_id,
-        answer,
+        answer: answer || '', // Empty string for unanswered
       }));
 
       const response = await quizAPI.submit(quizId, answersArray);
       const submissionId = response.data.submission_id;
       toast.success('Quiz submitted successfully!');
-      navigate(`/quiz/${quizId}/result`);
+      navigate(`/quiz/submission/${submissionId}`);
     } catch (error) {
       const message = error.response?.data?.detail || 'Failed to submit quiz';
       toast.error(message);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const formatTime = (seconds) => {
+    if (seconds === null) return null;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTimerColor = () => {
+    if (timeRemaining === null) return 'text-gray-600';
+    if (timeRemaining <= 60) return 'text-red-600';
+    if (timeRemaining <= 300) return 'text-yellow-600';
+    return 'text-green-600';
   };
 
   if (loading) {
@@ -115,11 +186,35 @@ export default function QuizTake() {
 
   const isCompleted = quiz?.submitted_at !== null;
   const answeredCount = Object.values(answers).filter(a => a !== null && a !== '').length;
+  const unansweredCount = quiz?.questions.length - answeredCount;
   const progress = (answeredCount / quiz?.questions.length) * 100;
 
   return (
     <Layout>
       <div className="p-8 max-w-4xl mx-auto">
+        {/* Timer Warning Banner */}
+        {showWarning && timeRemaining !== null && timeRemaining > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Card className="p-4 bg-gradient-to-r from-yellow-50 to-red-50 border-2 border-yellow-500">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="text-yellow-600 flex-shrink-0" size={24} />
+                <div>
+                  <p className="text-sm text-yellow-900 font-bold">
+                    ⚠️ Only {formatTime(timeRemaining)} remaining!
+                  </p>
+                  <p className="text-xs text-yellow-800 mt-1">
+                    Quiz will auto-submit when time expires. Submit now to avoid losing your answers.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <button
@@ -140,12 +235,27 @@ export default function QuizTake() {
                   {quiz?.questions.length} questions
                 </p>
               </div>
-              {isCompleted && (
-                <span className="px-4 py-2 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-700 font-semibold flex items-center gap-2">
-                  <CheckCircle2 size={18} />
-                  Completed
-                </span>
-              )}
+
+              <div className="flex items-center gap-4">
+                {/* Timer Display */}
+                {!isCompleted && timeRemaining !== null && (
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-white border-2 ${
+                    timeRemaining <= 60 ? 'border-red-500' : timeRemaining <= 300 ? 'border-yellow-500' : 'border-green-500'
+                  }`}>
+                    <Clock size={20} className={getTimerColor()} />
+                    <span className={`text-xl font-bold ${getTimerColor()}`}>
+                      {formatTime(timeRemaining)}
+                    </span>
+                  </div>
+                )}
+
+                {isCompleted && (
+                  <span className="px-4 py-2 rounded-full bg-gradient-to-r from-green-100 to-green-200 text-green-700 font-semibold flex items-center gap-2">
+                    <CheckCircle2 size={18} />
+                    Completed
+                  </span>
+                )}
+              </div>
             </div>
 
             {!isCompleted && (
@@ -207,7 +317,7 @@ export default function QuizTake() {
                       }`}>
                         {question.type === 'MCQ' ? 'Multiple Choice' : 'Essay'}
                       </span>
-                      {!isCompleted && answers[question.id] && (
+                      {!isCompleted && answers[question.id] && (answers[question.id] !== null && answers[question.id] !== '') && (
                         <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium flex items-center gap-1">
                           <CheckCircle2 size={12} />
                           Answered
@@ -308,13 +418,13 @@ export default function QuizTake() {
                   loading={submitting}
                   icon={!submitting ? Send : undefined}
                   className="w-full text-lg py-4"
-                  disabled={answeredCount < quiz?.questions.length}
                 >
                   {submitting ? 'Submitting...' : 'Submit Quiz'}
                 </Button>
                 {answeredCount < quiz?.questions.length && (
-                  <p className="text-center text-sm text-gray-500 mt-3">
-                    Please answer all questions before submitting
+                  <p className="text-center text-sm text-yellow-600 mt-3 flex items-center justify-center gap-2">
+                    <AlertCircle size={14} />
+                    {quiz?.questions.length - answeredCount} question(s) unanswered. You can still submit.
                   </p>
                 )}
               </Card>
@@ -328,6 +438,7 @@ export default function QuizTake() {
           onClose={() => setShowSubmitModal(false)}
           onConfirm={confirmSubmit}
           questionCount={quiz?.questions.length}
+          unansweredCount={unansweredCount}
         />
       </div>
     </Layout>
